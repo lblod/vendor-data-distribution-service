@@ -1,0 +1,35 @@
+{
+  "name": "vendor-data-distribution-service",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Service to distribute data for the SPARQL endpoint to vendors in their own organisation graph.",
+  "dependencies": {
+    "@lblod/mu-auth-sudo": "^0.6.0",
+    "env-var": "7.3.0",
+    "n3": "^1.16.2",
+    "rdf-string-ttl": "^1.2.0",
+    "sparqljson-parse": "^2.1.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.24.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "prettier": "^2.7.1"
+  },
+  "main": "app.js",
+  "scripts": {
+    "lint:js": "eslint . --cache",
+    "lint:js:fix": "eslint . --cache --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:lblod/vendor-data-distribution-service.git"
+  },
+  "author": "redpencil.io",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lblod/vendor-data-distribution-service/issues"
+  },
+  "homepage": "https://github.com/lblod/vendor-data-distribution-service#readme"
+}
