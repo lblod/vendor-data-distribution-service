@@ -15,8 +15,8 @@ export const LOGLEVEL = envvar
 
 //TODO would be better as a separate config file when the wanted subjects
 //become large in number?
-export const INTERESTED_SUBJECT_TYPES = envvar
-  .get('INTERESTED_SUBJECT_TYPES')
+export const INTERESTING_SUBJECT_TYPES = envvar
+  .get('INTERESTING_SUBJECT_TYPES')
   .example(
     'http://rdf.myexperiment.org/ontologies/base/Submission,http://vocab.deri.ie/cogs#Job'
   )
