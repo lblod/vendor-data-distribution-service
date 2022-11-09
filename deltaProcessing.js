@@ -1,3 +1,7 @@
+import * as rst from 'rdf-string-ttl';
+import * as sjp from 'sparqljson-parse';
+import * as mas from '@lblod/mu-auth-sudo';
+import * as env from './env';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
@@ -47,19 +51,30 @@ function* getAllUniqueSubjects(changesets) {
 }
 
 async function* getAllWantedSubjects(subjects) {
-  for (const subject of subjects)
-    if (await isWantedSubject(subject)) yield subject;
-}
+  const subjectsSparql = [...subjects].map(rst.termToString).join(' ');
+  const typeQuery = `
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-async function isWantedSubject(subject) {
-  //TODO execute queries per subject, or one query for all to get the rdf:type
-  //for all those subjects. Match them to the types in the config to filter.
-  return true;
+    SELECT ?subject ?type WHERE {
+      ?subject rdf:type ?type .
+      VALUES ?subject {
+        ${subjectsSparql}
+      }
+    }
+  `;
+  const response = await mas.querySudo(typeQuery);
+  const parser = new sjp.SparqlJsonParser();
+  const parsedResults = parser.parseJsonResults(response);
+
+  for (const result of parsedResults)
+    if (env.INTERESTING_SUBJECT_TYPES.includes(result.type.value))
+      yield result.subject;
 }
 
 async function getAllDataForSubjects(subjects) {
   //TODO construct and execute query to get all the '?s ?p ?o' for every
   //subject. Construct a store for that data.
+  return new N3.Store();
 }
 
 async function executeChangesets(store, changesets) {
@@ -74,10 +89,64 @@ async function compareStores(originalStore, resultStore) {
   //toInsert data.
 }
 
-async function updateData(removeStore, insertStore) {
+export async function updateData(deleteColl, insertColl, sessionId) {
   //TODO make 1 query DELETE {} INSERT {} WHERE {} for better transactional
   //control. If this where done with multiple queries, we need to be able to
   //undo them when further queries fail. Doing this in one query will fail
   //everything or succeed everything at once.
   //TODO if query size becomes too large, split updates per subject.
+  const deleteWriter = new N3.Writer({ format: 'text/turtle' });
+  const insertWriter = new N3.Writer({ format: 'text/turtle' });
+  // Deliberate copy without graph, to make formatting data correct for
+  // inserting inside SPARQL query.
+  deleteColl.forEach((q) =>
+    deleteWriter.addQuad(q.subject, q.predicate, q.object)
+  );
+  insertColl.forEach((q) =>
+    insertWriter.addQuad(q.subject, q.predicate, q.object)
+  );
+  const deleteTriples = await new Promise((resolve, reject) => {
+    deleteWriter.end((err, result) => {
+      if (err) reject(err);
+      resolve(result);
+    });
+  });
+  const insertTriples = await new Promise((resolve, reject) => {
+    insertWriter.end((err, result) => {
+      if (err) reject(err);
+      resolve(result);
+    });
+  });
+  const deletePart =
+    deleteTriples.length > 0
+      ? `DELETE {
+          GRAPH ?g {
+            ${deleteTriples}
+          }
+        }`
+      : '';
+  const insertPart =
+    insertTriples.length > 0
+      ? `INSERT {
+          GRAPH ?g {
+            ${insertTriples}
+          }
+        }`
+      : '';
+  const updateQuery = `
+    ${env.SPARQL_PREFIXES}
+    ${deletePart}
+    ${insertPart}
+    WHERE {
+      ${rst.termToString(sessionId)}
+        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
+        muAccount:account/mu:uuid ?vendor_id .
+      BIND (
+        URI(
+          CONCAT(
+            "http://mu.semte.ch/graphs/vendors/",
+            ?vendor_id, "/", ?session_group))
+        AS ?g )
+    }`;
+  await mas.updateSudo(updateQuery);
 }
