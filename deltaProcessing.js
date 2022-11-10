@@ -2,25 +2,23 @@ import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
 import * as mas from '@lblod/mu-auth-sudo';
 import * as env from './env';
+import * as pbu from './parse-bindings-utils';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
-  console.log(JSON.stringify(changesets));
 export async function processDelta(changesets, sessionId) {
   // Filter all subjects (just all subjects, filter later which ones needed)
   const allSubjects = getAllUniqueSubjects(changesets);
 
   // Query all those subjects to see which ones are a Submission, ...
-  const wantedSubjects = getAllWantedSubjects(allSubjects);
+  const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
-  //TODO remove this logging
-  for await (const sub of wantedSubjects) console.log(sub);
-
-  // Get all the data for those subjects
+  // Get all the data for those subjects that can be found in the vendors graph
   const dataStore = await getAllDataForSubjects(wantedSubjects, sessionId);
 
   // Make shallow copy of the starting data store
-  const originalDataStore = new N3.Store([...dataStore]);
+  const originalDataStore = new N3.Store();
+  dataStore.forEach((q) => originalDataStore.addQuad(q));
 
   // "Execute" the changesets as if they where queries on the internal store
   const resultDataStore = await executeChangesets(dataStore, changesets);
@@ -36,39 +34,38 @@ export async function processDelta(changesets, sessionId) {
 }
 
 // Returns RDF terms per subject
-function* getAllUniqueSubjects(changesets) {
-  const subjectStringSet = new Set(
-    changesets
-      .map((changeset) => {
-        return changeset.inserts.concat(changeset.deletes);
-      })
-      .flat()
-      .map((triple) => {
-        return triple.subject.value;
-      })
-  );
-  for (const value of subjectStringSet) yield namedNode(value);
+function getAllUniqueSubjects(changesets) {
+  const allSubjects = changesets
+    .map((changeset) => {
+      return changeset.inserts.concat(changeset.deletes);
+    })
+    .flat()
+    .map((triple) => {
+      return triple.subject.value;
+    });
+  const subjectStringSet = new Set(allSubjects);
+  return [...subjectStringSet].map(namedNode);
 }
 
-async function* getAllWantedSubjects(subjects) {
-  const subjectsSparql = [...subjects].map(rst.termToString).join(' ');
-  const typeQuery = `
+async function getAllWantedSubjects(subjects) {
+  const response = await mas.querySudo(`
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-    SELECT ?subject ?type WHERE {
+    SELECT DISTINCT ?subject ?type WHERE {
       ?subject rdf:type ?type .
       VALUES ?subject {
-        ${subjectsSparql}
+        ${subjects.map(rst.termToString).join(' ')}
       }
     }
-  `;
-  const response = await mas.querySudo(typeQuery);
+  `);
   const parser = new sjp.SparqlJsonParser();
   const parsedResults = parser.parseJsonResults(response);
 
+  const wantedSubjects = [];
   for (const result of parsedResults)
     if (env.INTERESTING_SUBJECT_TYPES.includes(result.type.value))
-      yield result.subject;
+      wantedSubjects.push(result.subject);
+  return wantedSubjects;
 }
 
 async function getAllDataForSubjects(subjects, sessionId) {

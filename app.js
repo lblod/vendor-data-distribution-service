@@ -41,8 +41,6 @@ app.post('/delta', async function (req, res, next) {
  */
 app.get('/test', async function (req, res, next) {
   res.status(200).end();
-  //for (const changeset of deltaData.changesets)
-  //  await del.processDelta(changeset);
   try {
     const sessionId = req.get('mu-session-id');
     if (!sessionId) throw new Error('No mu-session-id header is supplied');
