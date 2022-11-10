@@ -24,7 +24,9 @@ app.post('/delta', async function (req, res, next) {
 
   try {
     const changesets = req.body;
-    await del.processDelta(changesets);
+    const sessionId = req.get('mu-session-id');
+    if (!sessionId) throw new Error('No mu-session-id header is supplied');
+    await del.processDelta(changesets, namedNode(sessionId));
   } catch (err) {
     next(err);
   }
@@ -48,9 +50,9 @@ app.get('/test', async function (req, res, next) {
       for (const changeset of changesetGroup) {
         const deletes = changeset.deletes.map(pbu.parseSparqlJsonBindingQuad);
         const inserts = changeset.inserts.map(pbu.parseSparqlJsonBindingQuad);
-        await del.updateData(deletes, inserts, namedNode(sessionId));
+        await del.updateDataInTestGraph(deletes, inserts, namedNode(sessionId));
       }
-      await del.processDelta(changesetGroup);
+      await del.processDelta(changesetGroup, namedNode(sessionId));
     }
   } catch (err) {
     next(err);
