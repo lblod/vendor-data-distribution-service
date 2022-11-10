@@ -20,8 +20,14 @@ export async function processDelta(changesets, sessionId) {
   const originalDataStore = new N3.Store();
   dataStore.forEach((q) => originalDataStore.addQuad(q));
 
+  // Create a subset of changesets where only the wanted Subjects are affected
+  const effectiveChangesets = getWantedChangesets(changesets, wantedSubjects);
+
   // "Execute" the changesets as if they where queries on the internal store
-  const resultDataStore = await executeChangesets(dataStore, changesets);
+  const resultDataStore = await executeChangesets(
+    dataStore,
+    effectiveChangesets
+  );
 
   // Make comparisons to the original data to only get updated values
   const { toRemoveStore, toInsertStore } = await compareStores(
@@ -71,19 +77,86 @@ async function getAllWantedSubjects(subjects) {
 async function getAllDataForSubjects(subjects, sessionId) {
   //TODO construct and execute query to get all the '?s ?p ?o' for every
   //subject. Construct a store for that data.
-  return new N3.Store();
+  if (!subjects || subjects.length === 0) return new N3.Store();
+  const subjectsSparql = subjects.map(rst.termToString).join(' ');
+  const response = await mas.querySudo(`
+    ${env.SPARQL_PREFIXES}
+    CONSTRUCT {
+      ?s ?p ?o .
+    } WHERE {
+    ${rst.termToString(sessionId)}
+        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
+        muAccount:account/mu:uuid ?vendor_id .
+      BIND (
+        URI(
+          CONCAT(
+            "http://mu.semte.ch/graphs/vendors/",
+            ?vendor_id, "/", ?session_group))
+        AS ?g )
+      GRAPH ?g {
+        ?s ?p ?o .
+        VALUES ?s {
+          ${subjectsSparql}
+        }
+      }
+    }
+  `);
+  const sparqlJsonParser = new sjp.SparqlJsonParser();
+  const parsedResults = sparqlJsonParser.parseJsonResults(response);
+  const store = new N3.Store();
+  parsedResults.forEach((binding) =>
+    store.addQuad(binding.s, binding.p, binding.o)
+  );
+  return store;
+}
+
+/*
+ * @param {Object} changesets -
+ * @param {Set(NamedNode)} wantedSubjects -
+ */
+function getWantedChangesets(changesets, wantedSubjects) {
+  return changesets
+    .map((changeset) => {
+      return {
+        inserts: changeset.inserts.filter((ins) => {
+          return wantedSubjects.find((ws) => ws.value === ins.subject.value);
+        }),
+        deletes: changeset.deletes.filter((del) => {
+          return wantedSubjects.find((ws) => ws.value === del.subject.value);
+        }),
+      };
+    })
+    .filter(
+      (changeset) =>
+        (changeset.inserts.length > 0) | (changeset.deletes.length > 0)
+    );
 }
 
 async function executeChangesets(store, changesets) {
   //TODO take one changeset at a time. Take the deletes and remove those
   //triples from the store. Then take the inserts and insert them as quads in
   //the store. Continue with the next changeset.
+  for (const changeset of changesets) {
+    // Process deletes
+    //changeset.deletes.map(pbu.parseSparqlJsonBindingQuad).forEach((q) => {
+    //  store.removeQuad(q);
+    //});
+    store.removeQuads(changeset.deletes.map(pbu.parseSparqlJsonBindingQuad));
+    // Process inserts
+    store.addQuads(changeset.inserts.map(pbu.parseSparqlJsonBindingQuad));
+  }
+  return store;
 }
 
 async function compareStores(originalStore, resultStore) {
   //TODO remove identical triples between stores from both stores. The original
   //store will become the toRemove data and the result store will become the
   //toInsert data.
+  resultStore.forEach((q) => originalStore.removeQuad(q));
+  originalStore.forEach((q) => resultStore.removeQuad(q));
+  return { toRemoveStore: originalStore, toInsertStore: resultStore };
+}
+
 //TODO make 1 query DELETE {} INSERT {} WHERE {} for better transactional
 //control. If this where done with multiple queries, we need to be able to undo
 //them when further queries fail. Doing this in one query will fail everything
