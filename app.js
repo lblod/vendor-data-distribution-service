@@ -37,8 +37,17 @@ app.post('/delta', async function (req, res, next) {
  * (because of babel config and the mu package that can not be imported outside
  * of the mu-javascript template), we have to test this service with an
  * internal test route.
- * TODO make sure this test route is not accessible in production.
+ * This route is protected to only be accessible during development mode.
  */
+app.use('/test', async function (req, res, next) {
+  if (/development/.test(env.RUN_MODE)) next();
+  else
+    res
+      .status(401)
+      .send(
+        'This route has been disabled, because it is for testing purposes only.'
+      );
+});
 app.get('/test', async function (req, res, next) {
   res.status(200).end();
   try {
