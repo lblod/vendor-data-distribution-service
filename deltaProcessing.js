@@ -6,21 +6,36 @@ import * as pbu from './parse-bindings-utils';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
+/*
+ * Takes delta messages, filters subjects, fetches already known data for those
+ * subjects, replays delta messages, calculates differences, and only inserts
+ * the changed data.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {Array(Object)} changesets - This array contains JavaScript object is
+ * are the regular delta message format from the delta-notifier.
+ * @param {NamedNode} sessionId - Represents the mu-session-id that is received
+ * from incoming delta messages request.
+ * @returns {undefined} Nothing
+ */
 export async function processDelta(changesets, sessionId) {
   // Filter all subjects (just all subjects, filter later which ones needed)
   const allSubjects = getAllUniqueSubjects(changesets);
 
-  // Query all those subjects to see which ones are a Submission, ...
+  // Query all those subjects to see which are intersting according to a
+  // configuration.
   const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
   // Get all the data for those subjects that can be found in the vendors graph
   const dataStore = await getAllDataForSubjects(wantedSubjects, sessionId);
 
-  // Make shallow copy of the starting data store
+  // Make shallow copy of the starting data store for making comparisons
   const originalDataStore = new N3.Store();
   dataStore.forEach((q) => originalDataStore.addQuad(q));
 
-  // Create a subset of changesets where only the wanted Subjects are affected
+  // Create a subset of changesets where only the wanted subjects are affected
   const effectiveChangesets = getWantedChangesets(changesets, wantedSubjects);
 
   // "Execute" the changesets as if they where queries on the internal store
@@ -30,7 +45,7 @@ export async function processDelta(changesets, sessionId) {
   );
 
   // Make comparisons to the original data to only get updated values
-  const { toRemoveStore, toInsertStore } = await compareStores(
+  const { toRemoveStore, toInsertStore } = compareStores(
     originalDataStore,
     resultDataStore
   );
@@ -39,6 +54,14 @@ export async function processDelta(changesets, sessionId) {
   await updateData(toRemoveStore, toInsertStore, sessionId);
 }
 
+/*
+ * Gather distinct subjects from all the changes in the changesets.
+ *
+ * @function
+ * @param {Array(Object)} changesets - This array contains JavaScript objects
+ * that are in the regular delta message format from the delta-notifier.
+ * @returns {Array(NamedNode)} An array with RDF terms for unique subjects.
+ */
 // Returns RDF terms per subject
 function getAllUniqueSubjects(changesets) {
   const allSubjects = changesets
@@ -53,6 +76,15 @@ function getAllUniqueSubjects(changesets) {
   return [...subjectStringSet].map(namedNode);
 }
 
+/*
+ * Fetch types (rdf:type) for the subjects and filter them by the
+ * configuration.
+ *
+ * @async
+ * @function
+ * @param {Array(NamedNode)} subjects - An array with subjects.
+ * @returns {Array(NamedNode)} Same as input parameter, but filtered.
+ */
 async function getAllWantedSubjects(subjects) {
   const response = await mas.querySudo(`
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -74,9 +106,18 @@ async function getAllWantedSubjects(subjects) {
   return wantedSubjects;
 }
 
+/*
+ * Fetch all known data for the given subjects.
+ *
+ * @async
+ * @function
+ * @param {Array(NamedNode)} subjects - Subjects where all the data needs to be
+ * fetched from.
+ * @param {NamedNode} sessionId - Represents the mu-session-id that is received
+ * from incoming delta messages request.
+ * @returns {N3.Store} Store containing all the known data.
+ */
 async function getAllDataForSubjects(subjects, sessionId) {
-  //TODO construct and execute query to get all the '?s ?p ?o' for every
-  //subject. Construct a store for that data.
   if (!subjects || subjects.length === 0) return new N3.Store();
   const subjectsSparql = subjects.map(rst.termToString).join(' ');
   const response = await mas.querySudo(`
@@ -84,7 +125,7 @@ async function getAllDataForSubjects(subjects, sessionId) {
     CONSTRUCT {
       ?s ?p ?o .
     } WHERE {
-    ${rst.termToString(sessionId)}
+      ${rst.termToString(sessionId)}
         muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
         muAccount:account/mu:uuid ?vendor_id .
       BIND (
@@ -104,6 +145,7 @@ async function getAllDataForSubjects(subjects, sessionId) {
   const sparqlJsonParser = new sjp.SparqlJsonParser();
   const parsedResults = sparqlJsonParser.parseJsonResults(response);
   const store = new N3.Store();
+  // Explicitly not copying the graph
   parsedResults.forEach((binding) =>
     store.addQuad(binding.s, binding.p, binding.o)
   );
@@ -111,8 +153,14 @@ async function getAllDataForSubjects(subjects, sessionId) {
 }
 
 /*
- * @param {Object} changesets -
- * @param {Set(NamedNode)} wantedSubjects -
+ * Filter delta messages for the interesting subjects.
+ *
+ * @function
+ * @param {Array(Object)} changesets - This array contains JavaScript objects
+ * that are in the regular delta message format from the delta-notifier.
+ * @param {Array(NamedNode)} wantedSubjects - Contains the unique collection of
+ * subjects.
+ * @returns {Array(Objects)} A new set of delta messages, but filtered.
  */
 function getWantedChangesets(changesets, wantedSubjects) {
   return changesets
@@ -132,15 +180,21 @@ function getWantedChangesets(changesets, wantedSubjects) {
     );
 }
 
+/*
+ * Replay delta messages on an internal data store.
+ *
+ * @async
+ * @function
+ * @param {N3.Store} store - Initial data store where the changes can be
+ * replayed on.
+ * @param {Array(Object)} changesets - This array contains JavaScript objects
+ * that are in the regular delta message format from the delta-notifier.
+ * @returns {N3.Store} The store from the input parameter. A store is not
+ * functionally updated, so the original store is destructively changed.
+ */
 async function executeChangesets(store, changesets) {
-  //TODO take one changeset at a time. Take the deletes and remove those
-  //triples from the store. Then take the inserts and insert them as quads in
-  //the store. Continue with the next changeset.
   for (const changeset of changesets) {
     // Process deletes
-    //changeset.deletes.map(pbu.parseSparqlJsonBindingQuad).forEach((q) => {
-    //  store.removeQuad(q);
-    //});
     store.removeQuads(changeset.deletes.map(pbu.parseSparqlJsonBindingQuad));
     // Process inserts
     store.addQuads(changeset.inserts.map(pbu.parseSparqlJsonBindingQuad));
@@ -148,19 +202,42 @@ async function executeChangesets(store, changesets) {
   return store;
 }
 
-async function compareStores(originalStore, resultStore) {
-  //TODO remove identical triples between stores from both stores. The original
-  //store will become the toRemove data and the result store will become the
-  //toInsert data.
+/*
+ * Compare two stores. Identical triples are **destructively** removed from
+ * both stores. The result is the original store with the triples that are
+ * removed or updated, and the result store with only triples that are inserted
+ * or updated.
+ *
+ * @function
+ * @param {N3.Store} originalStore - The store with initial, already known
+ * data.
+ * @param {N3.Store} resultStore - The store that has been modified from the
+ * original store.
+ * @returns {{ toRemoveStore: N3.Store, toInsertStore: N3.Store }} An object
+ * with two stores, one with data that is removed or updated and one with
+ * inserted or updated data.
+ */
+function compareStores(originalStore, resultStore) {
   resultStore.forEach((q) => originalStore.removeQuad(q));
   originalStore.forEach((q) => resultStore.removeQuad(q));
   return { toRemoveStore: originalStore, toInsertStore: resultStore };
 }
 
-//TODO make 1 query DELETE {} INSERT {} WHERE {} for better transactional
-//control. If this where done with multiple queries, we need to be able to undo
-//them when further queries fail. Doing this in one query will fail everything
-//or succeed everything at once.
+/*
+ * Takes collections of data and executes one update query on the database in
+ * the graph that is specific to the current vendor.
+ *
+ * @async
+ * @function
+ * @param {Iterable} deleteColl - An Array, N3.Store or other iterable
+ * collection that contains RDF Quads that need to be removed from the
+ * database.
+ * @param {Iterable} insertColl - An Array, N3.Store or other iterable
+ * collection that contains RDF Quads that need to be inserted in the database.
+ * @param {NamedNode} sessionId - Represents the mu-session-id that is received
+ * from incoming delta messages request.
+ * @returns {undefined} Nothing
+ */
 //TODO if query size becomes too large, split updates per subject.
 async function updateData(deleteColl, insertColl, sessionId) {
   if (deleteColl.size < 1 && insertColl.size < 1) return;
@@ -221,11 +298,19 @@ async function updateData(deleteColl, insertColl, sessionId) {
   await mas.updateSudo(updateQuery);
 }
 
+/*
+ * **TEST ONLY** Performs the same as `updateData` but only on a specific
+ * graph. This is used to simulate the original data inserted in the
+ * organisation's graph.
+ *
+ * @public
+ * @async
+ * @function
+ * @see {@link updateData}
+ */
 export async function updateDataInTestGraph(deleteColl, insertColl) {
   const deleteWriter = new N3.Writer({ format: 'text/turtle' });
   const insertWriter = new N3.Writer({ format: 'text/turtle' });
-  // Deliberate copy without graph, to make formatting data correct for
-  // inserting inside SPARQL query.
   deleteColl.forEach((q) =>
     deleteWriter.addQuad(q.subject, q.predicate, q.object)
   );
@@ -244,26 +329,18 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
       resolve(result);
     });
   });
-  const deletePart =
-    deleteTriples.length > 0
-      ? `DELETE {
-          GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
-            ${deleteTriples}
-          }
-        }`
-      : '';
-  const insertPart =
-    insertTriples.length > 0
-      ? `INSERT {
-          GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
-            ${insertTriples}
-          }
-        }`
-      : '';
   const updateQuery = `
     ${env.SPARQL_PREFIXES}
-    ${deletePart}
-    ${insertPart}
+    DELETE {
+      GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
+      ${deleteTriples}
+      }
+    }
+    INSERT {
+      GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
+      ${insertTriples}
+      }
+    }
     WHERE {
     }`;
   await mas.updateSudo(updateQuery);
