@@ -2,11 +2,14 @@ import { app } from 'mu';
 import bodyParser from 'body-parser';
 import { v4 as uuid } from 'uuid';
 import { NAMESPACES as ns } from './env';
+import { BASES as b } from './env';
 import * as del from './deltaProcessing';
 import * as env from './env';
 import * as pbu from './parse-bindings-utils';
+import * as mas from '@lblod/mu-auth-sudo';
+import * as rst from 'rdf-string-ttl';
 import * as N3 from 'n3';
-const { namedNode, literal, blankNode } = N3.DataFactory;
+const { namedNode, literal } = N3.DataFactory;
 import * as deltaData from './DeltaTestData.js';
 
 app.use(
@@ -75,9 +78,10 @@ app.get('/test', async function (req, res, next) {
 /* eslint-disable no-unused-vars */
 app.use(async (err, req, res, next) => {
   if (env.LOGLEVEL === 'error') console.error(err);
-  console.error(err);
-  const errorStore = errorToStore(err);
-  await writeError(errorStore);
+  if (env.WRITE_ERRORS === true) {
+    const errorStore = errorToStore(err);
+    await writeError(errorStore);
+  }
 });
 /* eslint-enable no-unused-vars */
 
@@ -96,13 +100,28 @@ app.use(async (err, req, res, next) => {
  */
 function errorToStore(errorObject) {
   const store = new N3.Store();
-  const error = blankNode(uuid());
+  const errorUuid = uuid();
+  const error = b.error(errorUuid);
   store.addQuad(error, ns.rdf`type`, ns.oslc`Error`);
-  store.addQuad(error, ns.mu`uuid`, literal(uuid()));
+  store.addQuad(error, ns.mu`uuid`, literal(errorUuid));
   store.addQuad(error, ns.oslc`message`, literal(errorObject.message));
   return store;
 }
 
 async function writeError(errorStore) {
-  //TODO implement
+  const writer = new N3.Writer();
+  errorStore.forEach((q) => writer.addQuad(q));
+  const errorTriples = await new Promise((resolve, reject) => {
+    writer.end((err, res) => {
+      if (err) reject(err);
+      resolve(res);
+    });
+  });
+  await mas.updateSudo(`
+    INSERT DATA {
+      GRAPH ${rst.termToString(namedNode(env.ERROR_GRAPH))} {
+        ${errorTriples}
+      }
+    }
+  `);
 }

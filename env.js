@@ -25,6 +25,21 @@ export const INTERESTING_SUBJECT_TYPES = envvar
   .default('http://rdf.myexperiment.org/ontologies/base/Submission')
   .asArray(',');
 
+export const WRITE_ERRORS = envvar
+  .get('WRITE_ERRORS')
+  .default('false')
+  .asBool();
+
+export const ERROR_GRAPH = envvar
+  .get('ERROR_GRAPH')
+  .default('http://lblod.data.gift/errors')
+  .asUrlString();
+
+export const ERROR_BASE = envvar
+  .get('ERR0R_BASE')
+  .default('http://data.lblod.info/errors/')
+  .asUrlString();
+
 const PREFIXES = {
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
   xsd: 'http://www.w3.org/2001/XMLSchema#',
@@ -39,10 +54,20 @@ const PREFIXES = {
   dct: 'http://purl.org/dc/terms/',
 };
 
+const BASE = {
+  error: 'http://data.lblod.info/errors/',
+};
+
 export const NAMESPACES = (() => {
   const all = {};
   for (const key in PREFIXES)
     all[key] = (pred) => namedNode(`${PREFIXES[key]}${pred}`);
+  return all;
+})();
+
+export const BASES = (() => {
+  const all = {};
+  for (const key in BASE) all[key] = (pred) => namedNode(`${BASE[key]}${pred}`);
   return all;
 })();
 
