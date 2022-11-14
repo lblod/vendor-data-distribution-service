@@ -1,0 +1,19 @@
+@prefix     xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix     rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix     pav: <http://purl.org/pav/> .
+@prefix      mu: <http://mu.semte.ch/vocabularies/core/> .
+@prefix      ex: <http://rdf.myexperiment.org/ontologies/base/> .
+@prefix     nie: <http://www.semanticdesktop.org/ontologies/2007/01/19/nie#> .
+@prefix    adms: <http://www.w3.org/ns/adms#> .
+@prefix    prov: <http://www.w3.org/ns/prov#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<http://data.lblod.info/submissions/b6b76ac0-5f8b-11ed-b29d-cb0aa48f5e37>
+    a ex:Submission ;
+    mu:uuid "b6b76ac0-5f8b-11ed-b29d-cb0aa48f5e37" ;
+    dcterms:subject <https://lblod.Mechelen.be/LBLODWeb/id/besluiten/04732e82e4e84486a9409180982c39c9-84990> ;
+    pav:createdBy <http://data.lblod.info/id/bestuurseenheden/be278471a2a318edba32e7ac4294c0eafbe4c8077a34dcbb9c2e43211d4a78a6> ;
+    pav:providedBy <http://example.com/vendor/mechelen> ;
+    nie:hasPart <http://data.lblod.info/id/remote-data-objects/b6dfda50-5f8b-11ed-b29d-cb0aa48f5e37> ;
+    adms:status <http://lblod.data.gift/concepts/79a52da4-f491-4e2f-9374-89a13cde8ecd> ;
+    prov:atLocation <https://lblod.mechelen.be/LBLODWeb/Home/Overzicht/7b0258ec55a77ef7f521548d8252c8895243b28ba2247e8658a3bc02c4c09348/GetPublication/?filename=Uittreksels_18-07-2022_84990.html> .

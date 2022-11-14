@@ -10,7 +10,7 @@ import * as mas from '@lblod/mu-auth-sudo';
 import * as rst from 'rdf-string-ttl';
 import * as N3 from 'n3';
 const { namedNode, literal } = N3.DataFactory;
-import * as deltaData from './DeltaTestData.js';
+import * as deltaData from './test/DeltaTestData.js';
 
 app.use(
   bodyParser.json({
@@ -52,10 +52,10 @@ app.use('/test', async function (req, res, next) {
       );
 });
 app.get('/test', async function (req, res, next) {
-  res.status(200).end();
   try {
     const sessionId = req.get('mu-session-id');
     if (!sessionId) throw new Error('No mu-session-id header is supplied');
+    await del.clearTestData(namedNode(sessionId));
     for (const changesetGroup of deltaData.changesets) {
       for (const changeset of changesetGroup) {
         const deletes = changeset.deletes.map(pbu.parseSparqlJsonBindingQuad);
@@ -64,6 +64,9 @@ app.get('/test', async function (req, res, next) {
       }
       await del.processDelta(changesetGroup, namedNode(sessionId));
     }
+    const testSuccess = await del.assertCorrectTestDeltas(namedNode(sessionId));
+    if (testSuccess) res.status(201).send({ result: 'Passed' });
+    else res.status(201).send({ result: 'FAILED' });
   } catch (err) {
     next(err);
   }

@@ -298,6 +298,48 @@ async function updateData(deleteColl, insertColl, sessionId) {
   await mas.updateSudo(updateQuery);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Testers
+///////////////////////////////////////////////////////////////////////////////
+
+/*
+ * **TEST ONLY**
+ */
+export async function clearTestData(sessionId) {
+  await mas.updateSudo(`
+    DELETE {
+      GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
+        ?s ?p ?o .
+      }
+    }
+    WHERE {
+      GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
+        ?s ?p ?o .
+      }
+    }`);
+  await mas.updateSudo(`
+    ${env.SPARQL_PREFIXES}
+    DELETE {
+      GRAPH ?g {
+        ?s ?p ?o .
+      }
+    }
+    WHERE {
+      ${rst.termToString(sessionId)}
+        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
+        muAccount:account/mu:uuid ?vendor_id .
+      BIND (
+        URI(
+          CONCAT(
+            "http://mu.semte.ch/graphs/vendors/",
+            ?vendor_id, "/", ?session_group))
+        AS ?g )
+      GRAPH ?g {
+        ?s ?p ?o .
+      }
+    }`);
+}
+
 /*
  * **TEST ONLY** Performs the same as `updateData` but only on a specific
  * graph. This is used to simulate the original data inserted in the
@@ -309,8 +351,8 @@ async function updateData(deleteColl, insertColl, sessionId) {
  * @see {@link updateData}
  */
 export async function updateDataInTestGraph(deleteColl, insertColl) {
-  const deleteWriter = new N3.Writer({ format: 'text/turtle' });
-  const insertWriter = new N3.Writer({ format: 'text/turtle' });
+  const deleteWriter = new N3.Writer();
+  const insertWriter = new N3.Writer();
   deleteColl.forEach((q) =>
     deleteWriter.addQuad(q.subject, q.predicate, q.object)
   );
@@ -344,4 +386,46 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
     WHERE {
     }`;
   await mas.updateSudo(updateQuery);
+}
+
+export async function assertCorrectTestDeltas(sessionId) {
+  // Fetch all data from vendor graph into store
+  const response = await mas.querySudo(`
+    ${env.SPARQL_PREFIXES}
+    CONSTRUCT {
+      ?s ?p ?o .
+    } WHERE {
+      ${rst.termToString(sessionId)}
+        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
+        muAccount:account/mu:uuid ?vendor_id .
+      BIND (
+        URI(
+          CONCAT(
+            "http://mu.semte.ch/graphs/vendors/",
+            ?vendor_id, "/", ?session_group))
+        AS ?g )
+      GRAPH ?g {
+        ?s ?p ?o .
+      }
+    }
+  `);
+  const sparqlJsonParser = new sjp.SparqlJsonParser();
+  const parsedResults = sparqlJsonParser.parseJsonResults(response);
+  const toCheckStore = new N3.Store();
+  parsedResults.forEach((binding) =>
+    toCheckStore.addQuad(binding.s, binding.p, binding.o)
+  );
+
+  // Make store from test data results file
+  const testResult = await fs.readFile('/app/test/TestData.ttl', {
+    encoding: 'utf-8',
+  });
+  const testResultStore = new N3.Store();
+  const parser = new N3.Parser({ format: 'text/turtle' });
+  parser.parse(testResult).forEach((t) => testResultStore.addQuad(t));
+
+  // Compare stores, nothing should be different
+  compareStores(toCheckStore, testResultStore);
+
+  return toCheckStore.size === 0 && testResultStore.size === 0;
 }
