@@ -4,12 +4,6 @@ const { namedNode } = N3.DataFactory;
 
 export const RUN_MODE = envvar.get('NODE_ENV').default('production').asString();
 
-export const DATABASE_HOST = envvar
-  .get('DATABASE_HOST')
-  .example('http://database:8890')
-  .default('http://database:8890')
-  .asUrlString();
-
 export const LOGLEVEL = envvar
   .get('LOGLEVEL')
   .default('silent')
