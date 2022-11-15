@@ -309,7 +309,14 @@ async function updateData(deleteColl, insertColl, sessionId) {
 ///////////////////////////////////////////////////////////////////////////////
 
 /*
- * **TEST ONLY**
+ * **TEST ONLY** Clears the data from the graphs used for testing..
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} sessionId - Represents the mu-session-id that is received
+ * from incoming delta messages request.
+ * @returns {undefined} Nothing
  */
 export async function clearTestData(sessionId) {
   await mas.updateSudo(`
@@ -394,6 +401,20 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
   await mas.updateSudo(updateQuery);
 }
 
+/*
+ * **TEST ONLY** Fetches data from the vendor graph after delta messages have
+ * been processed and compares it with a static data file. Returns a boolean to
+ * indicate a difference in the data. The test should suceed if there is no
+ * difference.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} sessionId - Represents the mu-session-id that is received
+ * from incoming delta messages request.
+ * @returns {Boolean} True if the data contains no difference to the static
+ * result data, false if there is a difference and the test fails.
+ */
 export async function assertCorrectTestDeltas(sessionId) {
   // Fetch all data from vendor graph into store
   const response = await mas.querySudo(`
