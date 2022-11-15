@@ -1,3 +1,4 @@
+import * as fs from 'fs/promises';
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
 import * as mas from '@lblod/mu-auth-sudo';
@@ -218,8 +219,13 @@ async function executeChangesets(store, changesets) {
  * inserted or updated data.
  */
 function compareStores(originalStore, resultStore) {
-  resultStore.forEach((q) => originalStore.removeQuad(q));
+  // Make copy of second store, because if we already start removing things, we
+  // will never be able to remove all intersecting triples.
+  const resultStoreCopy = new N3.Store();
+  resultStore.forEach((q) => resultStoreCopy.addQuad(q));
+
   originalStore.forEach((q) => resultStore.removeQuad(q));
+  resultStoreCopy.forEach((q) => originalStore.removeQuad(q));
   return { toRemoveStore: originalStore, toInsertStore: resultStore };
 }
 
