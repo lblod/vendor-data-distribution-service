@@ -55,11 +55,11 @@ export function parseSparqlJsonTerm(jsonTerm) {
  * @param {object} rawBinding - This is an object from the array of bindings
  * from the SPARQL JSON results. E.g. this could be of the structure `{ book:
  * term, isbn: term, pages: term }` where every `term` is an object as
-  * described in {@link parseSparqlJsonTerm}.
+ * described in {@link parseSparqlJsonTerm}.
  * @results {object} This is an object with the same keys as the input object,
  * but where every value is parsed to the appropriate RDFJS term. E.g. as a
-  * continuation of the previous example: `{ book: namedNode, isbn: literal,
-  * pages: literal }`.
+ * continuation of the previous example: `{ book: namedNode, isbn: literal,
+ * pages: literal }`.
  */
 export function parseSparqlJsonBinding(rawBinding) {
   let parsedBinding = {};
@@ -81,7 +81,7 @@ export function parseSparqlJsonBinding(rawBinding) {
  * @param {object} rawBinding - This is an object from the array of bindings
  * from the SPARQL JSON results. E.g. this could be of the structure `{ s:
  * term, p: term, o: term }` where every `term` is an object as described in
-  * {@link parseSparqlJsonTerm}.
+ * {@link parseSparqlJsonTerm}.
  * @results {quad} This is an RDFJS quad representing the triple for the given
  * binding.
  */
@@ -93,4 +93,3 @@ export function parseSparqlJsonBindingQuad(rawBinding) {
     parseSparqlJsonTerm(rawBinding.graph || rawBinding.g)
   );
 }
-
