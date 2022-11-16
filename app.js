@@ -4,6 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { NAMESPACES as ns } from './env';
 import { BASES as b } from './env';
 import * as del from './deltaProcessing';
+import * as test from './test/test';
 import * as env from './env';
 import * as pbu from './parse-bindings-utils';
 import * as mas from '@lblod/mu-auth-sudo';
@@ -52,16 +53,16 @@ app.use('/test', async function (req, res, next) {
 });
 app.get('/test', async function (req, res, next) {
   try {
-    await del.clearTestData(vi.vendorInfo);
+    await test.clearTestData(vi.vendorInfo);
     for (const changesetGroup of deltaData.changesets) {
       for (const changeset of changesetGroup) {
         const deletes = changeset.deletes.map(pbu.parseSparqlJsonBindingQuad);
         const inserts = changeset.inserts.map(pbu.parseSparqlJsonBindingQuad);
-        await del.updateDataInTestGraph(deletes, inserts);
+        await test.updateDataInTestGraph(deletes, inserts);
       }
       await del.processDelta(changesetGroup);
     }
-    const testSuccess = await del.assertCorrectTestDeltas(vi.vendorInfo);
+    const testSuccess = await test.assertCorrectTestDeltas(vi.vendorInfo);
     if (testSuccess) res.status(201).send({ result: 'Passed' });
     else res.status(201).send({ result: 'FAILED' });
   } catch (err) {
