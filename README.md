@@ -4,13 +4,15 @@ Service to distribute data for the SPARQL endpoint to vendors in their own
 designated accessible space.
 
 This service works by listening to delta messages from the `delta-notifier` and
-by forwarding configurable pieces of information into another graph that is
-later only accessible for reading by the vendor that originally (indirectly)
-created the data. `mu-authorization` takes care of controlling access via
-SPARQL queries from there. E.g. a vendor reports a publication and the
-automatic-submission-flow creates a bunch of related tasks, jobs, submissions,
-files, ... about the publication. You can forward data about specific subjects
-into a graph that is only readable for that vendor through `mu-authorization`.
+by forwarding configurable (currently not working anymore due to technical
+difficulties, only the Submission is filtered for now) pieces of information
+into another graph that is later only accessible for reading by the vendor that
+originally (indirectly) created the data. `mu-authorization` takes care of
+controlling access via SPARQL queries from there. E.g. a vendor reports a
+publication and the automatic-submission-flow creates a bunch of related tasks,
+jobs, submissions, files, ... about the publication. You can forward data about
+specific subjects with this service into a graph that is only readable for that
+vendor through `mu-authorization`.
 
 ## Adding to a stack
 
@@ -92,13 +94,14 @@ Supply a value for them using the `environment` keyword in the
   "http://rdf.myexperiment.org/ontologies/base/Submission")</em> comma separated
   list of URIs that represent types of individuals in the database (by
   `rdf:type`) that are supposed to be picked up by this service and forwarded to
-  the appropriate vendor graph.
+  the appropriate vendor graph. (**NOTE**: only the Submission is supported for
+  now, so leave this environment variable blank!)
 * `NODE_ENV`: <em>(optional, default: "production", possible values:
-  ['production', 'development', ...])</em> on top of the regular Node behaviour
+  ["production", "development", ...])</em> on top of the regular Node behaviour
   for these modes, this service only opens test routes when running in
   development.
-* `LOGLEVEL`: <em>(optional, default: "silent", possible values: ['error',
-  'silent'])</em> level of logging to the console.
+* `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
+  "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
   to true to write errors to the database.
 * `ERROR_GRAPH`: <em>(optional, URI for graph, default:
@@ -112,10 +115,10 @@ Supply a value for them using the `environment` keyword in the
 Set the `NODE_ENV` environment variable to "development" to enable the test
 route.</strong>
 
-<strong>This service requires a mu-session-id header and should therefore only
-be used through a `mu-identifier` service. Make sure to execute requests with
-cookies and log in using the
-[vendor-login-service](https://github.com/lblod/vendor-login-service).</strong>
+<strong>Testing does not fully simulate a real world scenario. It only tests the
+mechanism behind the filtering of the messages and updating the graph in a
+correct way. Always test with a real scenario with actual delta messages being
+produced.</strong>
 
 ### GET `/test`
 
@@ -135,15 +138,20 @@ messages are then also processed like this service normally does to real delta
 messages from the `delta-notifier`. The resulting data is then compared to the
 other test data file in the `test` folder that should contain a know good
 resulting state of the test data. When the data is different, the test should
-fail. 
+fail. The third data file in the `test` folder contains the vendor information
+that is used during testing. This data is otherwise fetched from the database.
 
 **Response**
 
-`{"result":"Passed"}`
+```json
+{"result":"Passed"}
+```
 
 to indicate success, or
 
-`{"result":"FAILED"}`
+```json
+{"result":"FAILED"}
+```
 
 to indicate failure. If another response is returned, check the logs (enable
 error logging) to start debugging.
