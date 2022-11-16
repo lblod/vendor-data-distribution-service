@@ -11,6 +11,7 @@ import * as rst from 'rdf-string-ttl';
 import * as N3 from 'n3';
 const { namedNode, literal } = N3.DataFactory;
 import * as deltaData from './test/DeltaTestData.js';
+import * as vi from './test/VendorInfo.js';
 
 app.use(
   bodyParser.json({
@@ -27,9 +28,7 @@ app.post('/delta', async function (req, res, next) {
 
   try {
     const changesets = req.body;
-    const sessionId = req.get('mu-session-id');
-    if (!sessionId) throw new Error('No mu-session-id header is supplied');
-    await del.processDelta(changesets, namedNode(sessionId));
+    await del.processDelta(changesets);
   } catch (err) {
     next(err);
   }
@@ -53,18 +52,16 @@ app.use('/test', async function (req, res, next) {
 });
 app.get('/test', async function (req, res, next) {
   try {
-    const sessionId = req.get('mu-session-id');
-    if (!sessionId) throw new Error('No mu-session-id header is supplied');
-    await del.clearTestData(namedNode(sessionId));
+    await del.clearTestData(vi.vendorInfo);
     for (const changesetGroup of deltaData.changesets) {
       for (const changeset of changesetGroup) {
         const deletes = changeset.deletes.map(pbu.parseSparqlJsonBindingQuad);
         const inserts = changeset.inserts.map(pbu.parseSparqlJsonBindingQuad);
-        await del.updateDataInTestGraph(deletes, inserts, namedNode(sessionId));
+        await del.updateDataInTestGraph(deletes, inserts);
       }
-      await del.processDelta(changesetGroup, namedNode(sessionId));
+      await del.processDelta(changesetGroup);
     }
-    const testSuccess = await del.assertCorrectTestDeltas(namedNode(sessionId));
+    const testSuccess = await del.assertCorrectTestDeltas(vi.vendorInfo);
     if (testSuccess) res.status(201).send({ result: 'Passed' });
     else res.status(201).send({ result: 'FAILED' });
   } catch (err) {

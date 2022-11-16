@@ -17,11 +17,9 @@ const { namedNode } = N3.DataFactory;
  * @function
  * @param {Array(Object)} changesets - This array contains JavaScript object is
  * are the regular delta message format from the delta-notifier.
- * @param {NamedNode} sessionId - Represents the mu-session-id that is received
- * from incoming delta messages request.
  * @returns {undefined} Nothing
  */
-export async function processDelta(changesets, sessionId) {
+export async function processDelta(changesets) {
   // Filter all subjects (just all subjects, filter later which ones needed)
   const allSubjects = getAllUniqueSubjects(changesets);
 
@@ -29,8 +27,11 @@ export async function processDelta(changesets, sessionId) {
   // configuration.
   const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
+  if (wantedSubjects.length < 1) return;
+  const vendorInfo = await getVendorInfoFromSubmission(wantedSubjects[0]);
+
   // Get all the data for those subjects that can be found in the vendors graph
-  const dataStore = await getAllDataForSubjects(wantedSubjects, sessionId);
+  const dataStore = await getAllDataForSubjects(wantedSubjects, vendorInfo);
 
   // Make shallow copy of the starting data store for making comparisons
   const originalDataStore = new N3.Store();
@@ -52,7 +53,7 @@ export async function processDelta(changesets, sessionId) {
   );
 
   // Perform updates on the triplestore
-  await updateData(toRemoveStore, toInsertStore, sessionId);
+  await updateData(toRemoveStore, toInsertStore, vendorInfo);
 }
 
 /*
@@ -108,34 +109,71 @@ async function getAllWantedSubjects(subjects) {
 }
 
 /*
+ * Get an object with information about the vendor that published a set of
+ * data. In this case, starting from a submission.
+ *
+ * @async
+ * @function
+ * @param {NamedNode} submission - Represents the URI of the submission that is
+ * being reported by the vendor we want the information about.
+ * @returns {Object} An object with keys `vendor` and `organisation`, each
+ * containing a new object with keys `id` and `uri` containing the mu:uuid and
+ * the URI respectively.
+ */
+//NOTE we might need to be able to get vendor info from different types of
+//subjects in the future.
+async function getVendorInfoFromSubmission(submission) {
+  const response = await mas.querySudo(`
+    ${env.SPARQL_PREFIXES}
+    SELECT ?vendor ?vendorId ?organisation ?organisationId WHERE {
+      ${rst.termToString(submission)}
+        pav:providedBy ?vendor .
+      ?vendor
+        muAccount:canActOnBehalfOf ?organisation ;
+        mu:uuid ?vendorId .
+      ?organisation
+        mu:uuid ?organisationId .
+    }
+  `);
+  const sparqlJsonParser = new sjp.SparqlJsonParser();
+  const parsedResults = sparqlJsonParser.parseJsonResults(response);
+
+  return {
+    vendor: {
+      id: parsedResults[0]?.vendorId.value,
+      uri: parsedResults[0]?.vendor.value,
+    },
+    organisation: {
+      id: parsedResults[0]?.organisationId.value,
+      uri: parsedResults[0]?.organisation.value,
+    },
+  };
+}
+
+/*
  * Fetch all known data for the given subjects.
  *
  * @async
  * @function
  * @param {Array(NamedNode)} subjects - Subjects where all the data needs to be
  * fetched from.
- * @param {NamedNode} sessionId - Represents the mu-session-id that is received
- * from incoming delta messages request.
+ * @param {Object} vendorInfo - A JavaScript object with stucture `{ vendor: {
+ * id, uri }, organisation: { id, uri } }` containing the information about the
+ * vendor that was responsible for reporting this amount of information.
  * @returns {N3.Store} Store containing all the known data.
  */
-async function getAllDataForSubjects(subjects, sessionId) {
+async function getAllDataForSubjects(subjects, vendorInfo) {
   if (!subjects || subjects.length === 0) return new N3.Store();
+  const vendorGraph = namedNode(
+    `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`
+  );
   const subjectsSparql = subjects.map(rst.termToString).join(' ');
   const response = await mas.querySudo(`
     ${env.SPARQL_PREFIXES}
     CONSTRUCT {
       ?s ?p ?o .
     } WHERE {
-      ${rst.termToString(sessionId)}
-        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
-        muAccount:account/mu:uuid ?vendor_id .
-      BIND (
-        URI(
-          CONCAT(
-            "http://mu.semte.ch/graphs/vendors/",
-            ?vendor_id, "/", ?session_group))
-        AS ?g )
-      GRAPH ?g {
+      GRAPH ${rst.termToString(vendorGraph)} {
         ?s ?p ?o .
         VALUES ?s {
           ${subjectsSparql}
@@ -240,13 +278,19 @@ function compareStores(originalStore, resultStore) {
  * database.
  * @param {Iterable} insertColl - An Array, N3.Store or other iterable
  * collection that contains RDF Quads that need to be inserted in the database.
- * @param {NamedNode} sessionId - Represents the mu-session-id that is received
- * from incoming delta messages request.
+ * @param {Object} vendorInfo - A JavaScript object with stucture `{ vendor: {
+ * id, uri }, organisation: { id, uri } }` containing the information about the
+ * vendor that was responsible for reporting this amount of information.
  * @returns {undefined} Nothing
  */
-//TODO if query size becomes too large, split updates per subject.
-async function updateData(deleteColl, insertColl, sessionId) {
+//NOTE if query size becomes too large, split updates per subject.
+async function updateData(deleteColl, insertColl, vendorInfo) {
   if (deleteColl.size < 1 && insertColl.size < 1) return;
+  const vendorGraphSparql = rst.termToString(
+    namedNode(
+      `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`
+    )
+  );
   let deletePart = '',
     insertPart = '';
   if (deleteColl.size > 0) {
@@ -263,10 +307,10 @@ async function updateData(deleteColl, insertColl, sessionId) {
       });
     });
     deletePart = `DELETE {
-      GRAPH ?g {
+      GRAPH ${vendorGraphSparql} {
         ${deleteTriples}
-        }
-      }`;
+      }
+    }`;
   }
   if (insertColl.size > 0) {
     const insertWriter = new N3.Writer({ format: 'text/turtle' });
@@ -280,7 +324,7 @@ async function updateData(deleteColl, insertColl, sessionId) {
       });
     });
     insertPart = `INSERT {
-      GRAPH ?g {
+      GRAPH ${vendorGraphSparql} {
         ${insertTriples}
       }
     }`;
@@ -290,17 +334,7 @@ async function updateData(deleteColl, insertColl, sessionId) {
     ${env.SPARQL_PREFIXES}
     ${deletePart}
     ${insertPart}
-    WHERE {
-      ${rst.termToString(sessionId)}
-        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
-        muAccount:account/mu:uuid ?vendor_id .
-      BIND (
-        URI(
-          CONCAT(
-            "http://mu.semte.ch/graphs/vendors/",
-            ?vendor_id, "/", ?session_group))
-        AS ?g )
-    }`;
+    WHERE {}`;
   await mas.updateSudo(updateQuery);
 }
 
@@ -314,11 +348,15 @@ async function updateData(deleteColl, insertColl, sessionId) {
  * @public
  * @async
  * @function
- * @param {NamedNode} sessionId - Represents the mu-session-id that is received
- * from incoming delta messages request.
+ * @param {Object} vendorInfo - A JavaScript object with stucture `{ vendor: {
+ * id, uri }, organisation: { id, uri } }` containing the information about the
+ * vendor that was responsible for reporting this amount of information.
  * @returns {undefined} Nothing
  */
-export async function clearTestData(sessionId) {
+export async function clearTestData(vendorInfo) {
+  const vendorGraph = namedNode(
+    `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`
+  );
   await mas.updateSudo(`
     DELETE {
       GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
@@ -333,21 +371,12 @@ export async function clearTestData(sessionId) {
   await mas.updateSudo(`
     ${env.SPARQL_PREFIXES}
     DELETE {
-      GRAPH ?g {
+      GRAPH ${rst.termToString(vendorGraph)} {
         ?s ?p ?o .
       }
     }
     WHERE {
-      ${rst.termToString(sessionId)}
-        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
-        muAccount:account/mu:uuid ?vendor_id .
-      BIND (
-        URI(
-          CONCAT(
-            "http://mu.semte.ch/graphs/vendors/",
-            ?vendor_id, "/", ?session_group))
-        AS ?g )
-      GRAPH ?g {
+      GRAPH ${rst.termToString(vendorGraph)} {
         ?s ?p ?o .
       }
     }`);
@@ -410,28 +439,23 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
  * @public
  * @async
  * @function
- * @param {NamedNode} sessionId - Represents the mu-session-id that is received
- * from incoming delta messages request.
+ * @param {Object} vendorInfo - A JavaScript object with stucture `{ vendor: {
+ * id, uri }, organisation: { id, uri } }` containing the information about the
+ * vendor that was responsible for reporting this amount of information.
  * @returns {Boolean} True if the data contains no difference to the static
  * result data, false if there is a difference and the test fails.
  */
-export async function assertCorrectTestDeltas(sessionId) {
+export async function assertCorrectTestDeltas(vendorInfo) {
   // Fetch all data from vendor graph into store
+  const vendorGraph = namedNode(
+    `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`
+  );
   const response = await mas.querySudo(`
     ${env.SPARQL_PREFIXES}
     CONSTRUCT {
       ?s ?p ?o .
     } WHERE {
-      ${rst.termToString(sessionId)}
-        muAccount:canActOnBehalfOf/mu:uuid ?session_group ;
-        muAccount:account/mu:uuid ?vendor_id .
-      BIND (
-        URI(
-          CONCAT(
-            "http://mu.semte.ch/graphs/vendors/",
-            ?vendor_id, "/", ?session_group))
-        AS ?g )
-      GRAPH ?g {
+      GRAPH ${rst.termToString(vendorGraph)} {
         ?s ?p ?o .
       }
     }

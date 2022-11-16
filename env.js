@@ -11,6 +11,7 @@ export const LOGLEVEL = envvar
 
 //TODO would be better as a separate config file when the wanted subjects
 //become large in number?
+//TODO we only support Submissions for now. Make this config better.
 export const INTERESTING_SUBJECT_TYPES = envvar
   .get('INTERESTING_SUBJECT_TYPES')
   .example(
