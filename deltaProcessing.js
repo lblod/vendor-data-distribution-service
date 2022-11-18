@@ -29,6 +29,12 @@ export async function processDelta(changesets) {
   if (wantedSubjects.length < 1) return;
   const vendorInfo = await getVendorInfoFromSubmission(wantedSubjects[0]);
 
+  if(!vendorInfo.vendor.id) {
+    console.log(`No vendor information found for
+                 submission ${rst.termToString(wantedSubjects[0])}. Skipping.`);
+    return;
+  }
+
   // Get all the data for those subjects that can be found in the vendors graph
   const dataStore = await getAllDataForSubjects(wantedSubjects, vendorInfo);
 
