@@ -126,6 +126,7 @@ async function getVendorInfoFromSubmission(submission) {
     ${env.SPARQL_PREFIXES}
     SELECT ?vendor ?vendorId ?organisation ?organisationId WHERE {
       ${rst.termToString(submission)}
+        pav:createdBy ?organisation;
         pav:providedBy ?vendor .
       ?vendor
         muAccount:canActOnBehalfOf ?organisation ;
