@@ -311,7 +311,7 @@ async function updateData(deleteColl, insertColl, vendorInfo) {
         resolve(result);
       });
     });
-    deletePart = `DELETE {
+    deletePart = `DELETE DATA {
       GRAPH ${vendorGraphSparql} {
         ${deleteTriples}
       }
@@ -328,7 +328,7 @@ async function updateData(deleteColl, insertColl, vendorInfo) {
         resolve(result);
       });
     });
-    insertPart = `INSERT {
+    insertPart = `INSERT DATA {
       GRAPH ${vendorGraphSparql} {
         ${insertTriples}
       }
@@ -338,7 +338,7 @@ async function updateData(deleteColl, insertColl, vendorInfo) {
   const updateQuery = `
     ${env.SPARQL_PREFIXES}
     ${deletePart}
-    ${insertPart}
-    WHERE {}`;
+    ${insertPart}`;
+
   await mas.updateSudo(updateQuery);
 }
