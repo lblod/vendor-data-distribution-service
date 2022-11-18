@@ -130,7 +130,7 @@ async function getAllWantedSubjects(subjects) {
 async function getVendorInfoFromSubmission(submission) {
   const response = await mas.querySudo(`
     ${env.SPARQL_PREFIXES}
-    SELECT ?vendor ?vendorId ?organisation ?organisationId WHERE {
+    SELECT DISTINCT ?vendor ?vendorId ?organisation ?organisationId WHERE {
       ${rst.termToString(submission)}
         pav:providedBy ?vendor .
       ?vendor
