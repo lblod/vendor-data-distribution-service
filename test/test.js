@@ -82,16 +82,15 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
     ${env.SPARQL_PREFIXES}
     DELETE {
       GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
-      ${deleteTriples}
+        ${deleteTriples}
       }
     }
     INSERT {
       GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
-      ${insertTriples}
+        ${insertTriples}
       }
     }
-    WHERE {
-    }`;
+    WHERE {}`;
   await mas.updateSudo(updateQuery);
 }
 
