@@ -326,7 +326,7 @@ async function updateData(deleteColl, insertColl, vendorInfo) {
       GRAPH ${vendorGraphSparql} {
         ${deleteTriples}
       }
-    }`;
+    };`;
   }
   if (insertColl.size > 0) {
     const insertWriter = new N3.Writer({ format: 'text/turtle' });
