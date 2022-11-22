@@ -16,7 +16,10 @@ const { namedNode } = N3.DataFactory;
  * @function
  * @param {Array(Object)} changesets - This array contains JavaScript object is
  * are the regular delta message format from the delta-notifier.
- * @returns {undefined} Nothing
+ * @returns {Object} A result object with the key `success` to indicate a
+ * successful ingestion of the changesets (true) or when there is nothing to
+ * ingest or vendor information is not correct (false). The `reason` key is a
+ * String with a message as to why no ingestion took place.
  */
 export async function processDelta(changesets) {
   // Filter all subjects (just all subjects, filter later which ones needed)
