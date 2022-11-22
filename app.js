@@ -29,7 +29,8 @@ app.post('/delta', async function (req, res, next) {
 
   try {
     const changesets = req.body;
-    await del.processDelta(changesets);
+    const result = await del.processDelta(changesets);
+    handleProcessingResult(result);
   } catch (err) {
     next(err);
   }
@@ -125,4 +126,10 @@ async function writeError(errorStore) {
       }
     }
   `);
+}
+
+function handleProcessingResult(result) {
+  if (result.success) return;
+  if (env.LOGLEVEL == 'error' || env.LOGLEVEL == 'info')
+    console.log(result.reason);
 }

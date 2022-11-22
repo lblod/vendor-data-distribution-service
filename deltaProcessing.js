@@ -26,14 +26,20 @@ export async function processDelta(changesets) {
   // configuration.
   const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
-  if (wantedSubjects.length < 1) return;
+  if (wantedSubjects.length < 1)
+    return {
+      success: false,
+      reason: 'No subjects of interest in these changesets.',
+    };
   const vendorInfo = await getVendorInfoFromSubmission(wantedSubjects[0]);
 
-  if(!vendorInfo.vendor.id) {
-    console.log(`No vendor information found for
-                 submission ${rst.termToString(wantedSubjects[0])}. Skipping.`);
-    return;
-  }
+  if (!vendorInfo.vendor.id)
+    return {
+      success: false,
+      reason: `No vendor information found for submission ${rst.termToString(
+        wantedSubjects[0]
+      )}. Skipping.`,
+    };
 
   // Get all the data for those subjects that can be found in the vendors graph
   const dataStore = await getAllDataForSubjects(wantedSubjects, vendorInfo);
@@ -59,6 +65,8 @@ export async function processDelta(changesets) {
 
   // Perform updates on the triplestore
   await updateData(toRemoveStore, toInsertStore, vendorInfo);
+
+  return { success: true };
 }
 
 /*
