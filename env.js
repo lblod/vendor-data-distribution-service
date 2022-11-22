@@ -7,7 +7,7 @@ export const RUN_MODE = envvar.get('NODE_ENV').default('production').asString();
 export const LOGLEVEL = envvar
   .get('LOGLEVEL')
   .default('silent')
-  .asEnum(['error', 'silent']);
+  .asEnum(['error', 'info', 'silent']);
 
 //TODO would be better as a separate config file when the wanted subjects
 //become large in number?

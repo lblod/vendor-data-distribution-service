@@ -16,7 +16,10 @@ const { namedNode } = N3.DataFactory;
  * @function
  * @param {Array(Object)} changesets - This array contains JavaScript object is
  * are the regular delta message format from the delta-notifier.
- * @returns {undefined} Nothing
+ * @returns {Object} A result object with the key `success` to indicate a
+ * successful ingestion of the changesets (true) or when there is nothing to
+ * ingest or vendor information is not correct (false). The `reason` key is a
+ * String with a message as to why no ingestion took place.
  */
 export async function processDelta(changesets) {
   // Filter all subjects (just all subjects, filter later which ones needed)
@@ -26,8 +29,20 @@ export async function processDelta(changesets) {
   // configuration.
   const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
-  if (wantedSubjects.length < 1) return;
+  if (wantedSubjects.length < 1)
+    return {
+      success: false,
+      reason: 'No subjects of interest in these changesets.',
+    };
   const vendorInfo = await getVendorInfoFromSubmission(wantedSubjects[0]);
+
+  if (!vendorInfo.vendor.id)
+    return {
+      success: false,
+      reason: `No vendor information found for submission ${rst.termToString(
+        wantedSubjects[0]
+      )}. Skipping.`,
+    };
 
   // Get all the data for those subjects that can be found in the vendors graph
   const dataStore = await getAllDataForSubjects(wantedSubjects, vendorInfo);
@@ -53,6 +68,8 @@ export async function processDelta(changesets) {
 
   // Perform updates on the triplestore
   await updateData(toRemoveStore, toInsertStore, vendorInfo);
+
+  return { success: true };
 }
 
 /*
@@ -124,7 +141,7 @@ async function getAllWantedSubjects(subjects) {
 async function getVendorInfoFromSubmission(submission) {
   const response = await mas.querySudo(`
     ${env.SPARQL_PREFIXES}
-    SELECT ?vendor ?vendorId ?organisation ?organisationId WHERE {
+    SELECT DISTINCT ?vendor ?vendorId ?organisation ?organisationId WHERE {
       ${rst.termToString(submission)}
         pav:createdBy ?organisation;
         pav:providedBy ?vendor .
@@ -306,11 +323,11 @@ async function updateData(deleteColl, insertColl, vendorInfo) {
         resolve(result);
       });
     });
-    deletePart = `DELETE {
+    deletePart = `DELETE DATA {
       GRAPH ${vendorGraphSparql} {
         ${deleteTriples}
       }
-    }`;
+    };`;
   }
   if (insertColl.size > 0) {
     const insertWriter = new N3.Writer({ format: 'text/turtle' });
@@ -323,7 +340,7 @@ async function updateData(deleteColl, insertColl, vendorInfo) {
         resolve(result);
       });
     });
-    insertPart = `INSERT {
+    insertPart = `INSERT DATA {
       GRAPH ${vendorGraphSparql} {
         ${insertTriples}
       }
@@ -333,7 +350,7 @@ async function updateData(deleteColl, insertColl, vendorInfo) {
   const updateQuery = `
     ${env.SPARQL_PREFIXES}
     ${deletePart}
-    ${insertPart}
-    WHERE {}`;
+    ${insertPart}`;
+
   await mas.updateSudo(updateQuery);
 }

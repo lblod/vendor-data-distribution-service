@@ -29,7 +29,8 @@ app.post('/delta', async function (req, res, next) {
 
   try {
     const changesets = req.body;
-    await del.processDelta(changesets);
+    const result = await del.processDelta(changesets);
+    handleProcessingResult(result);
   } catch (err) {
     next(err);
   }
@@ -109,6 +110,16 @@ function errorToStore(errorObject) {
   return store;
 }
 
+/*
+ * Receives a store with only the triples related to error messages and stores
+ * them in the triplestore.
+ *
+ * @async
+ * @function
+ * @param {N3.Store} errorStore - Store with only error triples. (All of the
+ * contents are stored.)
+ * @returns {undefined} Nothing
+ */
 async function writeError(errorStore) {
   const writer = new N3.Writer();
   errorStore.forEach((q) => writer.addQuad(q));
@@ -125,4 +136,21 @@ async function writeError(errorStore) {
       }
     }
   `);
+}
+
+/*
+ * The pocessing of delta messages should return an object with a potential
+ * information message. This function prints the message when the loglevel
+ * requests for that.
+ *
+ * @function
+ * @param {Object} result - A JavaScript object with keys `success` (Boolean)
+ * and `reason` (String). When not successful, the reason is printed according
+ * to the loglevel.
+ * @returns {undefined} Nothing
+ */
+function handleProcessingResult(result) {
+  if (result.success) return;
+  if (env.LOGLEVEL == 'error' || env.LOGLEVEL == 'info')
+    console.log(result.reason);
 }
