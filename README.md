@@ -91,11 +91,11 @@ Supply a value for them using the `environment` keyword in the
 `docker-compose.yml` file for this service.
 
 * **`INTERESTING_SUBJECT_TYPES`**: <em>(optional, default:
-  "http://rdf.myexperiment.org/ontologies/base/Submission")</em> comma separated
-  list of URIs that represent types of individuals in the database (by
-  `rdf:type`) that are supposed to be picked up by this service and forwarded to
-  the appropriate vendor graph. (**NOTE**: only the Submission is supported for
-  now, so leave this environment variable blank!)
+  "http://rdf.myexperiment.org/ontologies/base/Submission")</em> comma
+  separated list of URIs that represent types of individuals in the database
+  (by `rdf:type`) that are supposed to be picked up by this service and
+  forwarded to the appropriate vendor graph. (**NOTE**: only the Submission is
+  supported for now, so leave this environment variable blank!)
 * `NODE_ENV`: <em>(optional, default: "production", possible values:
   ["production", "development", ...])</em> on top of the regular Node behaviour
   for these modes, this service only opens test routes when running in
@@ -115,8 +115,8 @@ Supply a value for them using the `environment` keyword in the
 Set the `NODE_ENV` environment variable to "development" to enable the test
 route.</strong>
 
-<strong>Testing does not fully simulate a real world scenario. It only tests the
-mechanism behind the filtering of the messages and updating the graph in a
+<strong>Testing does not fully simulate a real world scenario. It only tests
+the mechanism behind the filtering of the messages and updating the graph in a
 correct way. Always test with a real scenario with actual delta messages being
 produced.</strong>
 
@@ -130,8 +130,8 @@ curl -v -X GET -b CookieJar.tsv -c CookieJar.tsv \
 ```
 
 This service can be tested (albeit a bit rudimentary) by calling the `/test`
-route. There is a test data file in the `test` folder that contains a collection
-of changesets (or delta messages), captures from a real run of the
+route. There is a test data file in the `test` folder that contains a
+collection of changesets (or delta messages), captures from a real run of the
 automatic-submission-flow, that are executed one by one to simulate incoming
 delta messages into a test graph that can be easily removed later. These delta
 messages are then also processed like this service normally does to real delta
