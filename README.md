@@ -101,7 +101,7 @@ Supply a value for them using the `environment` keyword in the
   for these modes, this service only opens test routes when running in
   development.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
-  "silent"])</em> level of logging to the console.
+  "info", "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
   to true to write errors to the database.
 * `ERROR_GRAPH`: <em>(optional, URI for graph, default:
