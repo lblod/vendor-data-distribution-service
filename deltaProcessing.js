@@ -37,12 +37,16 @@ export async function processDelta(changesets) {
       reason: 'No subjects of interest in these changesets.',
     };
 
-  for(const subject of wantedSubjects) {
+  for (const subject of wantedSubjects) {
     //Warning: Order matters for the next call, see comment below!
     const vendorInfo = await getVendorInfoFromSubmission(subject);
 
     if (!vendorInfo.vendor.id) {
-      console.log(`No vendor information found for submission ${rst.termToString(subject)}. Skipping.`);
+      console.log(
+        `No vendor information found for submission ${rst.termToString(
+          subject
+        )}. Skipping.`
+      );
       continue;
     }
 
@@ -102,7 +106,7 @@ function getAllUniqueSubjects(changesets) {
     .map((triple) => {
       return triple.subject.value;
     });
-  const subjectStrings = [ ...new Set(allSubjects) ];
+  const subjectStrings = [...new Set(allSubjects)];
   return subjectStrings.map(namedNode);
   //return [...subjectStringSet].map(namedNode);
 }
