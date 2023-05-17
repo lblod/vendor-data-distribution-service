@@ -34,25 +34,25 @@ export async function processDelta(changesets) {
       success: false,
       reason: 'No subjects of interest in these changesets.',
     };
-  const vendorInfo = await getVendorInfoFromSubmission(wantedSubjects[0]);
 
-  if (!vendorInfo.vendor.id)
-    return {
-      success: false,
-      reason: `No vendor information found for submission ${rst.termToString(
-        wantedSubjects[0]
-      )}. Skipping.`,
-    };
+  for(const subject of wantedSubjects) {
+    const vendorInfo = await getVendorInfoFromSubmission(subject);
 
   // Get all the data for those subjects that can be found in the vendors graph
   const dataStore = await getAllDataForSubjects(wantedSubjects, vendorInfo);
+    if (!vendorInfo.vendor.id) {
+      console.log(`No vendor information found for submission ${rst.termToString(subject)}. Skipping.`);
+      continue;
+    }
 
   // Make shallow copy of the starting data store for making comparisons
   const originalDataStore = new N3.Store();
   dataStore.forEach((q) => originalDataStore.addQuad(q));
+    const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`;
 
   // Create a subset of changesets where only the wanted subjects are affected
   const effectiveChangesets = getWantedChangesets(changesets, wantedSubjects);
+  }
 
   // "Execute" the changesets as if they where queries on the internal store
   const resultDataStore = await executeChangesets(
