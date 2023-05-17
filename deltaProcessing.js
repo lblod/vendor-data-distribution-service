@@ -108,7 +108,6 @@ function getAllUniqueSubjects(changesets) {
     });
   const subjectStrings = [...new Set(allSubjects)];
   return subjectStrings.map(namedNode);
-  //return [...subjectStringSet].map(namedNode);
 }
 
 /*
