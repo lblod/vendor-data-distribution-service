@@ -28,6 +28,7 @@ export async function processDelta(changesets) {
 
   // Query all those subjects to see which are intersting according to a
   // configuration.
+  //Warning: Order matters for the next call, see comment below!
   const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
   if (wantedSubjects.length < 1)
@@ -37,6 +38,7 @@ export async function processDelta(changesets) {
     };
 
   for(const subject of wantedSubjects) {
+    //Warning: Order matters for the next call, see comment below!
     const vendorInfo = await getVendorInfoFromSubmission(subject);
 
     if (!vendorInfo.vendor.id) {
@@ -113,6 +115,11 @@ function getAllUniqueSubjects(changesets) {
  * @function
  * @param {Array(NamedNode)} subjects - An array with subjects.
  * @returns {Array(NamedNode)} Same as input parameter, but filtered.
+ *
+ * WARNING:
+ *  - The current implementation works for deletes too, but that's
+ *    mainly because the vendor-graph is not flushed when this function is called
+ *    So: be cautious when shuffling this function around
  */
 async function getAllWantedSubjects(subjects) {
   const response = await mas.querySudo(`
@@ -146,9 +153,15 @@ async function getAllWantedSubjects(subjects) {
  * @returns {Object} An object with keys `vendor` and `organisation`, each
  * containing a new object with keys `id` and `uri` containing the mu:uuid and
  * the URI respectively.
+ *
+ * NOTE
+ *  - We might need to be able to get vendor info from different types of subjects in the future.
+ *
+ * WARNING:
+ *  - The current implementation works for deletes too, but that's
+ *    mainly because the vendor-graph is not flushed when this function is called
+ *    So: be cautious when shuffling this function around
  */
-//NOTE we might need to be able to get vendor info from different types of
-//subjects in the future.
 async function getVendorInfoFromSubmission(submission) {
   const response = await mas.querySudo(`
     ${env.SPARQL_PREFIXES}
