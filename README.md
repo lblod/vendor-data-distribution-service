@@ -4,15 +4,14 @@ Service to distribute data for the SPARQL endpoint to vendors in their own
 designated accessible space.
 
 This service works by listening to delta messages from the `delta-notifier` and
-by forwarding configurable (currently not working anymore due to technical
-difficulties, only the Submission is filtered for now) pieces of information
-into another graph that is later only accessible for reading by the vendor that
-originally (indirectly) created the data. `mu-authorization` takes care of
-controlling access via SPARQL queries from there. E.g. a vendor reports a
-publication and the automatic-submission-flow creates a bunch of related tasks,
-jobs, submissions, files, ... about the publication. You can forward data about
-specific subjects with this service into a graph that is only readable for that
-vendor through `mu-authorization`.
+by forwarding configurable pieces of information into another graph that is
+later only accessible for reading by the vendor that originally (indirectly)
+created the data. `mu-authorization` takes care of controlling access via
+SPARQL queries from there. E.g. a vendor reports a publication and the
+automatic-submission-flow creates a bunch of related tasks, jobs, submissions,
+files, ... about the publication. You can forward data about specific subjects
+with this service into a graph that is only readable for that vendor through
+`mu-authorization`.
 
 ## Adding to a stack
 
@@ -86,16 +85,35 @@ end
 
 ## Configuration
 
-These are environment variables that can be used to configure this service.
-Supply a value for them using the `environment` keyword in the
+Configuration about the interesting subject that need to be placed in the
+vendor specific graph is done in a separate configuration file. Create and
+mount via Docker the file in `config/subjectsAndPaths.js` with content that
+looks like the following:
+
+```javascript
+export const subjects = [
+  {
+    type: 'http://rdf.myexperiment.org/ontologies/base/Submission',
+    path: `
+      ?subject
+        pav:createdBy ?organisation ;
+        pav:providedBy ?vendor .
+    `,
+  },
+];
+```
+
+This creates an Array with JavaScript objects that have a `type` and `path`
+property. The `type` property indicates that subjects of this specific type
+(`rdf:type`) are interesting to the Vendor and all information for this subject
+will be copied to the vendor specific graph. The `path` property supplies a
+string that is used in SPARQL queries to find the `vendor` and `organisation`.
+These will be used to recontruct the vendor specific graph to put the data in.
+
+The following are environment variables that can be used to configure this
+service. Supply a value for them using the `environment` keyword in the
 `docker-compose.yml` file for this service.
 
-* **`INTERESTING_SUBJECT_TYPES`**: <em>(optional, default:
-  "http://rdf.myexperiment.org/ontologies/base/Submission")</em> comma
-  separated list of URIs that represent types of individuals in the database
-  (by `rdf:type`) that are supposed to be picked up by this service and
-  forwarded to the appropriate vendor graph. (**NOTE**: only the Submission is
-  supported for now, so leave this environment variable blank!)
 * `NODE_ENV`: <em>(optional, default: "production", possible values:
   ["production", "development", ...])</em> on top of the regular Node behaviour
   for these modes, this service only opens test routes when running in
