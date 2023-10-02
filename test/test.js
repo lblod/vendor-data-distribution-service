@@ -1,4 +1,3 @@
-import * as del from '../deltaProcessing';
 import * as fs from 'fs/promises';
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
@@ -140,7 +139,33 @@ export async function assertCorrectTestDeltas(vendorInfo) {
   parser.parse(testResult).forEach((t) => testResultStore.addQuad(t));
 
   // Compare stores, nothing should be different
-  del.compareStores(toCheckStore, testResultStore);
+  compareStores(toCheckStore, testResultStore);
 
   return toCheckStore.size === 0 && testResultStore.size === 0;
+}
+
+/*
+ * Compare two stores. Identical triples are **destructively** removed from
+ * both stores. The result is the original store with the triples that are
+ * removed or updated, and the result store with only triples that are inserted
+ * or updated.
+ *
+ * @function
+ * @param {N3.Store} originalStore - The store with initial, already known
+ * data.
+ * @param {N3.Store} resultStore - The store that has been modified from the
+ * original store.
+ * @returns {{ toRemoveStore: N3.Store, toInsertStore: N3.Store }} An object
+ * with two stores, one with data that is removed or updated and one with
+ * inserted or updated data.
+ */
+export function compareStores(originalStore, resultStore) {
+  // Make copy of second store, because if we already start removing things, we
+  // will never be able to remove all intersecting triples.
+  const resultStoreCopy = new N3.Store();
+  resultStore.forEach((q) => resultStoreCopy.addQuad(q));
+
+  originalStore.forEach((q) => resultStore.removeQuad(q));
+  resultStoreCopy.forEach((q) => originalStore.removeQuad(q));
+  return { toRemoveStore: originalStore, toInsertStore: resultStore };
 }
