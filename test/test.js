@@ -19,7 +19,7 @@ const { namedNode } = N3.DataFactory;
  */
 export async function clearTestData(vendorInfo) {
   const vendorGraph = namedNode(
-    `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`
+    `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`,
   );
   await mas.updateSudo(`
     DELETE {
@@ -60,10 +60,10 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
   const deleteWriter = new N3.Writer();
   const insertWriter = new N3.Writer();
   deleteColl.forEach((q) =>
-    deleteWriter.addQuad(q.subject, q.predicate, q.object)
+    deleteWriter.addQuad(q.subject, q.predicate, q.object),
   );
   insertColl.forEach((q) =>
-    insertWriter.addQuad(q.subject, q.predicate, q.object)
+    insertWriter.addQuad(q.subject, q.predicate, q.object),
   );
   const deleteTriples = await new Promise((resolve, reject) => {
     deleteWriter.end((err, result) => {
@@ -111,7 +111,7 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
 export async function assertCorrectTestDeltas(vendorInfo) {
   // Fetch all data from vendor graph into store
   const vendorGraph = namedNode(
-    `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`
+    `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`,
   );
   const response = await mas.querySudo(`
     ${env.SPARQL_PREFIXES}
@@ -127,7 +127,7 @@ export async function assertCorrectTestDeltas(vendorInfo) {
   const parsedResults = sparqlJsonParser.parseJsonResults(response);
   const toCheckStore = new N3.Store();
   parsedResults.forEach((binding) =>
-    toCheckStore.addQuad(binding.s, binding.p, binding.o)
+    toCheckStore.addQuad(binding.s, binding.p, binding.o),
   );
 
   // Make store from test data results file

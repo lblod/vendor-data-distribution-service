@@ -19,7 +19,7 @@ app.use(
     type: function (req) {
       return /^application\/json/.test(req.get('Content-Type'));
     },
-  })
+  }),
 );
 
 app.post('/delta', async function (req, res, next) {
@@ -49,7 +49,7 @@ app.use('/test', async function (req, res, next) {
     res
       .status(401)
       .send(
-        'This route has been disabled, because it is for testing purposes only.'
+        'This route has been disabled, because it is for testing purposes only.',
       );
 });
 app.get('/test', async function (req, res, next) {

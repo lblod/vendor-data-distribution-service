@@ -90,6 +90,6 @@ export function parseSparqlJsonBindingQuad(rawBinding) {
     parseSparqlJsonTerm(rawBinding.subject || rawBinding.s),
     parseSparqlJsonTerm(rawBinding.predicate || rawBinding.p),
     parseSparqlJsonTerm(rawBinding.object || rawBinding.o),
-    parseSparqlJsonTerm(rawBinding.graph || rawBinding.g)
+    parseSparqlJsonTerm(rawBinding.graph || rawBinding.g),
   );
 }

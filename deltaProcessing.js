@@ -42,14 +42,14 @@ export async function processDelta(changesets) {
     //Warning: Order matters for the next call, see comment below!
     const { vendor, organisation } = await getVendorInfoFromSubject(
       subject,
-      type
+      type,
     );
 
     if (!vendor.id) {
       console.log(
         `No vendor information found for submission ${rst.termToString(
-          subject
-        )}. Skipping.`
+          subject,
+        )}. Skipping.`,
       );
       continue;
     }
