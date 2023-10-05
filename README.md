@@ -109,6 +109,10 @@ property. The `type` property indicates that subjects of this specific type
 will be copied to the vendor specific graph. The `path` property supplies a
 string that is used in SPARQL queries to find the `vendor` and `organisation`.
 These will be used to recontruct the vendor specific graph to put the data in.
+The `subject` variable will be bound to the subject that matched with the
+`type` above. Use this to construct a path to the `vendor` and `organisation`
+variables. So, make sure at least all three variables are present in the path:
+`?subject`, `?vendor` and `?organisation`.
 
 The following are environment variables that can be used to configure this
 service. Supply a value for them using the `environment` keyword in the
