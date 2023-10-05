@@ -3,6 +3,7 @@ import * as sjp from 'sparqljson-parse';
 import * as mas from '@lblod/mu-auth-sudo';
 import * as env from './env';
 import * as N3 from 'n3';
+import * as conf from './config/subjectsAndPaths';
 const { namedNode } = N3.DataFactory;
 
 /*
@@ -37,20 +38,23 @@ export async function processDelta(changesets) {
       reason: 'No subjects of interest in these changesets.',
     };
 
-  for (const subject of wantedSubjects) {
+  for (const { subject, type } of wantedSubjects) {
     //Warning: Order matters for the next call, see comment below!
-    const vendorInfo = await getVendorInfoFromSubmission(subject);
+    const { vendor, organisation } = await getVendorInfoFromSubject(
+      subject,
+      type,
+    );
 
-    if (!vendorInfo.vendor.id) {
+    if (!vendor.id) {
       console.log(
         `No vendor information found for submission ${rst.termToString(
-          subject
-        )}. Skipping.`
+          subject,
+        )}. Skipping.`,
       );
       continue;
     }
 
-    const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`;
+    const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendor.id}/${organisation.id}`;
     const deleteQuery = `
        DELETE {
         GRAPH <${vendorGraph}> {
@@ -140,56 +144,52 @@ async function getAllWantedSubjects(subjects) {
 
   const wantedSubjects = [];
   for (const result of parsedResults)
-    if (env.INTERESTING_SUBJECT_TYPES.includes(result.type.value))
-      wantedSubjects.push(result.subject);
+    if (conf.subjects.find((s) => s.type === result.type.value))
+      wantedSubjects.push({ subject: result.subject, type: result.type });
   return wantedSubjects;
 }
 
 /*
  * Get an object with information about the vendor that published a set of
- * data. In this case, starting from a submission.
+ * data. Starting from the subject and its type (rdf:type).
  *
  * @async
  * @function
- * @param {NamedNode} submission - Represents the URI of the submission that is
- * being reported by the vendor we want the information about.
+ * @param {NamedNode} subject - Represents the URI of the subject that is being
+ * reported by the vendor we want the information about.
+ * @param {NamedNode} type - Represents the URI of the type of the subject.
  * @returns {Object} An object with keys `vendor` and `organisation`, each
  * containing a new object with keys `id` and `uri` containing the mu:uuid and
- * the URI respectively.
- *
- * NOTE
- *  - We might need to be able to get vendor info from different types of subjects in the future.
- *
- * WARNING:
- *  - The current implementation works for deletes too, but that's
- *    mainly because the vendor-graph is not flushed when this function is called
- *    So: be cautious when shuffling this function around
+ * the URI respectively. Returns undefined when no config for this subject is
+ * found.
  */
-async function getVendorInfoFromSubmission(submission) {
-  const response = await mas.querySudo(`
-    ${env.SPARQL_PREFIXES}
-    SELECT DISTINCT ?vendor ?vendorId ?organisation ?organisationId WHERE {
-      ${rst.termToString(submission)}
-        pav:createdBy ?organisation;
-        pav:providedBy ?vendor .
-      ?vendor
-        muAccount:canActOnBehalfOf ?organisation ;
-        mu:uuid ?vendorId .
-      ?organisation
-        mu:uuid ?organisationId .
-    }
-  `);
-  const sparqlJsonParser = new sjp.SparqlJsonParser();
-  const parsedResults = sparqlJsonParser.parseJsonResults(response);
+async function getVendorInfoFromSubject(subject, type) {
+  const path = conf.subjects.find((s) => s.type === type.value)?.path;
+  if (path) {
+    const response = await mas.querySudo(`
+      ${env.SPARQL_PREFIXES}
+      SELECT DISTINCT ?vendor ?vendorId ?organisation ?organisationId WHERE {
+        BIND (${rst.termToString(subject)} AS ?subject)
+        ${path}
+        ?vendor
+          muAccount:canActOnBehalfOf ?organisation ;
+          mu:uuid ?vendorId .
+        ?organisation
+          mu:uuid ?organisationId .
+      }
+    `);
+    const sparqlJsonParser = new sjp.SparqlJsonParser();
+    const parsedResults = sparqlJsonParser.parseJsonResults(response);
 
-  return {
-    vendor: {
-      id: parsedResults[0]?.vendorId.value,
-      uri: parsedResults[0]?.vendor.value,
-    },
-    organisation: {
-      id: parsedResults[0]?.organisationId.value,
-      uri: parsedResults[0]?.organisation.value,
-    },
-  };
+    return {
+      vendor: {
+        id: parsedResults[0]?.vendorId.value,
+        uri: parsedResults[0]?.vendor.value,
+      },
+      organisation: {
+        id: parsedResults[0]?.organisationId.value,
+        uri: parsedResults[0]?.organisation.value,
+      },
+    };
+  }
 }

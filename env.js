@@ -9,17 +9,6 @@ export const LOGLEVEL = envvar
   .default('silent')
   .asEnum(['error', 'info', 'silent']);
 
-//TODO would be better as a separate config file when the wanted subjects
-//become large in number?
-//TODO we only support Submissions for now. Make this config better.
-export const INTERESTING_SUBJECT_TYPES = envvar
-  .get('INTERESTING_SUBJECT_TYPES')
-  .example(
-    'http://rdf.myexperiment.org/ontologies/base/Submission,http://vocab.deri.ie/cogs#Job'
-  )
-  .default('http://rdf.myexperiment.org/ontologies/base/Submission')
-  .asArray(',');
-
 export const WRITE_ERRORS = envvar
   .get('WRITE_ERRORS')
   .default('false')

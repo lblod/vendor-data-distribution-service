@@ -1,6 +1,6 @@
 pipeline:
   lint:
-    image: node:14-alpine
+    image: node:18-alpine
     commands:
       # Need git for pulling some package dependencies (erikap/sparql-client)
       - apk --no-cache add git
