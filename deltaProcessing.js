@@ -40,12 +40,9 @@ export async function processDelta(changesets) {
 
   for (const { subject, type } of wantedSubjects) {
     //Warning: Order matters for the next call, see comment below!
-    const { vendor, organisation } = await getVendorInfoFromSubject(
-      subject,
-      type,
-    );
+    const vendorInfos = await getVendorInfoFromSubject(subject, type);
 
-    if (!vendor.id) {
+    if (!vendorInfos.length) {
       console.log(
         `No vendor information found for submission ${rst.termToString(
           subject,
@@ -54,38 +51,40 @@ export async function processDelta(changesets) {
       continue;
     }
 
-    const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendor.id}/${organisation.id}`;
-    const deleteQuery = `
-       DELETE {
-        GRAPH <${vendorGraph}> {
-          ?s ?p ?o.
-        }
-       }
-       WHERE {
-         VALUES ?s {
-           ${rst.termToString(subject)}
+    for (const vendorInfo of vendorInfos) {
+      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`;
+      const deleteQuery = `
+         DELETE {
+          GRAPH <${vendorGraph}> {
+            ?s ?p ?o.
+          }
          }
-        GRAPH <${vendorGraph}> {
-          ?s ?p ?o.
-        }
-       }
-    `;
-    await mas.updateSudo(deleteQuery);
+         WHERE {
+           VALUES ?s {
+             ${rst.termToString(subject)}
+           }
+          GRAPH <${vendorGraph}> {
+            ?s ?p ?o.
+          }
+         }
+      `;
+      await mas.updateSudo(deleteQuery);
 
-    const insertQuery = `
-       INSERT {
-         GRAPH <${vendorGraph}> {
+      const insertQuery = `
+         INSERT {
+           GRAPH <${vendorGraph}> {
+             ?s ?p ?o.
+           }
+         }
+         WHERE {
+           VALUES ?s {
+             ${rst.termToString(subject)}
+           }
            ?s ?p ?o.
          }
-       }
-       WHERE {
-         VALUES ?s {
-           ${rst.termToString(subject)}
-         }
-         ?s ?p ?o.
-       }
-    `;
-    await mas.updateSudo(insertQuery);
+      `;
+      await mas.updateSudo(insertQuery);
+    }
 
     wasIngestSuccesful = true;
   }
@@ -125,8 +124,8 @@ function getAllUniqueSubjects(changesets) {
  *
  * WARNING:
  *  - The current implementation works for deletes too, but that's
- *    mainly because the vendor-graph is not flushed when this function is called
- *    So: be cautious when shuffling this function around
+ *    mainly because the vendor-graph is not flushed when this function is
+ *    called. So: be cautious when shuffling this function around
  */
 async function getAllWantedSubjects(subjects) {
   const response = await mas.querySudo(`
@@ -180,16 +179,17 @@ async function getVendorInfoFromSubject(subject, type) {
     `);
     const sparqlJsonParser = new sjp.SparqlJsonParser();
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-
-    return {
-      vendor: {
-        id: parsedResults[0]?.vendorId.value,
-        uri: parsedResults[0]?.vendor.value,
-      },
-      organisation: {
-        id: parsedResults[0]?.organisationId.value,
-        uri: parsedResults[0]?.organisation.value,
-      },
-    };
+    return parsedResults.map((r) => {
+      return {
+        vendor: {
+          id: r?.vendorId.value,
+          uri: r?.vendor.value,
+        },
+        organisation: {
+          id: r?.organisationId.value,
+          uri: r?.organisation.value,
+        },
+      };
+    });
   }
 }
