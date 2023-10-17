@@ -30,7 +30,6 @@ export async function processDelta(changesets) {
 
   // Query all those subjects to see which are intersting according to a
   // configuration.
-  //Warning: Order matters for the next call, see comment below!
   const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
   if (wantedSubjects.length < 1)
@@ -39,7 +38,6 @@ export async function processDelta(changesets) {
       reason: 'No subjects of interest in these changesets.',
     };
 
-    //Warning: Order matters for the next call, see comment below!
   for (const { subject, type, config } of wantedSubjects) {
     const vendorInfos = await getVendorInfoFromSubject(subject, type, config);
 
@@ -70,7 +68,6 @@ export async function processDelta(changesets) {
  * that are in the regular delta message format from the delta-notifier.
  * @returns {Array(NamedNode)} An array with RDF terms for unique subjects.
  */
-// Returns RDF terms per subject
 function getAllUniqueSubjects(changesets) {
   const allSubjects = changesets
     .map((changeset) => {
