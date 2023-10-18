@@ -194,7 +194,9 @@ async function copyDataToVendorGraph(subject, config, graph) {
       }
     }
     WHERE {
-      BIND (${rst.termToString(subject)} AS ?subject)
-      ${config.copy.where}
+      GRAPH ?g {
+        BIND (${rst.termToString(subject)} AS ?subject)
+        ${config.copy.where}
+      }
     }`);
 }
