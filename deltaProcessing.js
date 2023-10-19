@@ -6,6 +6,10 @@ import * as N3 from 'n3';
 import * as conf from './config/subjectsAndPaths';
 const { namedNode } = N3.DataFactory;
 const sparqlJsonParser = new sjp.SparqlJsonParser();
+const connectionOptions = {
+  sparqlEndpoint: 'http://virtuoso:8890/sparql',
+  mayRetry: true,
+};
 
 /*
  * Takes delta messages, filters subjects, fetches already known data for those
@@ -189,6 +193,8 @@ async function removeDataFromVendorGraph(subject, config, graph) {
       BIND (${rst.termToString(subject)} AS ?subject)
       ${config.remove.where}
     }`,
+    undefined,
+    connectionOptions,
   );
 }
 
@@ -204,5 +210,7 @@ async function copyDataToVendorGraph(subject, config, graph) {
       BIND (${rst.termToString(subject)} AS ?subject)
       ${config.copy.where}
     }`,
+    undefined,
+    connectionOptions,
   );
 }
