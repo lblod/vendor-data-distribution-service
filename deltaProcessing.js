@@ -52,6 +52,10 @@ export async function processDelta(changesets) {
 
     for (const vendorInfo of vendorInfos) {
       const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`;
+      await removeDataFromVendorGraph(subject, config, vendorGraph);
+    }
+    for (const vendorInfo of vendorInfos) {
+      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`;
       await copyDataToVendorGraph(subject, config, vendorGraph);
     }
 
@@ -173,8 +177,9 @@ async function getVendorInfoFromSubject(subject, type, config) {
   }
 }
 
-async function copyDataToVendorGraph(subject, config, graph) {
-  await mas.updateSudo(`
+async function removeDataFromVendorGraph(subject, config, graph) {
+  await mas.updateSudo(
+    `
     DELETE {
       GRAPH <${graph}> {
         ${config.remove.delete}
@@ -182,21 +187,22 @@ async function copyDataToVendorGraph(subject, config, graph) {
     }
     WHERE {
       BIND (${rst.termToString(subject)} AS ?subject)
-      GRAPH <${graph}> {
-        ${config.remove.where}
-      }
-    }`);
+      ${config.remove.where}
+    }`,
+  );
+}
 
-  await mas.updateSudo(`
+async function copyDataToVendorGraph(subject, config, graph) {
+  await mas.updateSudo(
+    `
     INSERT {
       GRAPH <${graph}> {
         ${config.copy.insert}
       }
     }
     WHERE {
-      GRAPH ?g {
-        BIND (${rst.termToString(subject)} AS ?subject)
-        ${config.copy.where}
-      }
-    }`);
+      BIND (${rst.termToString(subject)} AS ?subject)
+      ${config.copy.where}
+    }`,
+  );
 }
