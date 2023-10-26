@@ -5,6 +5,11 @@ import * as env from './env';
 import * as N3 from 'n3';
 import * as conf from './config/subjectsAndPaths';
 const { namedNode } = N3.DataFactory;
+const sparqlJsonParser = new sjp.SparqlJsonParser();
+const connectionOptions = {
+  sparqlEndpoint: 'http://virtuoso:8890/sparql',
+  mayRetry: true,
+};
 
 /*
  * Takes delta messages, filters subjects, fetches already known data for those
@@ -29,7 +34,6 @@ export async function processDelta(changesets) {
 
   // Query all those subjects to see which are intersting according to a
   // configuration.
-  //Warning: Order matters for the next call, see comment below!
   const wantedSubjects = await getAllWantedSubjects(allSubjects);
 
   if (wantedSubjects.length < 1)
@@ -38,9 +42,8 @@ export async function processDelta(changesets) {
       reason: 'No subjects of interest in these changesets.',
     };
 
-  for (const { subject, type } of wantedSubjects) {
-    //Warning: Order matters for the next call, see comment below!
-    const vendorInfos = await getVendorInfoFromSubject(subject, type);
+  for (const { subject, type, config } of wantedSubjects) {
+    const vendorInfos = await getVendorInfoFromSubject(subject, type, config);
 
     if (!vendorInfos.length) {
       console.log(
@@ -52,38 +55,12 @@ export async function processDelta(changesets) {
     }
 
     for (const vendorInfo of vendorInfos) {
-      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`;
-      const deleteQuery = `
-         DELETE {
-          GRAPH <${vendorGraph}> {
-            ?s ?p ?o.
-          }
-         }
-         WHERE {
-           VALUES ?s {
-             ${rst.termToString(subject)}
-           }
-          GRAPH <${vendorGraph}> {
-            ?s ?p ?o.
-          }
-         }
-      `;
-      await mas.updateSudo(deleteQuery);
-
-      const insertQuery = `
-         INSERT {
-           GRAPH <${vendorGraph}> {
-             ?s ?p ?o.
-           }
-         }
-         WHERE {
-           VALUES ?s {
-             ${rst.termToString(subject)}
-           }
-           ?s ?p ?o.
-         }
-      `;
-      await mas.updateSudo(insertQuery);
+      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`;
+      await removeDataFromVendorGraph(subject, config, vendorGraph);
+    }
+    for (const vendorInfo of vendorInfos) {
+      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`;
+      await copyDataToVendorGraph(subject, config, vendorGraph);
     }
 
     wasIngestSuccesful = true;
@@ -99,7 +76,6 @@ export async function processDelta(changesets) {
  * that are in the regular delta message format from the delta-notifier.
  * @returns {Array(NamedNode)} An array with RDF terms for unique subjects.
  */
-// Returns RDF terms per subject
 function getAllUniqueSubjects(changesets) {
   const allSubjects = changesets
     .map((changeset) => {
@@ -132,19 +108,32 @@ async function getAllWantedSubjects(subjects) {
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
     SELECT DISTINCT ?subject ?type WHERE {
-      ?subject rdf:type ?type .
       VALUES ?subject {
         ${subjects.map(rst.termToString).join(' ')}
       }
+      ?subject rdf:type ?type .
     }
   `);
-  const parser = new sjp.SparqlJsonParser();
-  const parsedResults = parser.parseJsonResults(response);
-
+  const parsedResults = sparqlJsonParser.parseJsonResults(response);
   const wantedSubjects = [];
-  for (const result of parsedResults)
-    if (conf.subjects.find((s) => s.type === result.type.value))
-      wantedSubjects.push({ subject: result.subject, type: result.type });
+
+  for (const result of parsedResults) {
+    const confs = conf.subjects.filter((s) => s.type === result.type.value);
+    for (const conf of confs) {
+      const triggerResponse = await mas.querySudo(`
+        ASK {
+          BIND (${rst.termToString(result.subject)} AS ?subject)
+          ${conf.trigger}
+        }`);
+      const isTriggering = sparqlJsonParser.parseJsonBoolean(triggerResponse);
+      if (isTriggering)
+        wantedSubjects.push({
+          subject: result.subject,
+          type: result.type,
+          config: conf,
+        });
+    }
+  }
   return wantedSubjects;
 }
 
@@ -162,14 +151,13 @@ async function getAllWantedSubjects(subjects) {
  * the URI respectively. Returns undefined when no config for this subject is
  * found.
  */
-async function getVendorInfoFromSubject(subject, type) {
-  const path = conf.subjects.find((s) => s.type === type.value)?.path;
-  if (path) {
+async function getVendorInfoFromSubject(subject, type, config) {
+  if (config.path) {
     const response = await mas.querySudo(`
       ${env.SPARQL_PREFIXES}
       SELECT DISTINCT ?vendor ?vendorId ?organisation ?organisationId WHERE {
         BIND (${rst.termToString(subject)} AS ?subject)
-        ${path}
+        ${config.path}
         ?vendor
           muAccount:canActOnBehalfOf ?organisation ;
           mu:uuid ?vendorId .
@@ -177,19 +165,52 @@ async function getVendorInfoFromSubject(subject, type) {
           mu:uuid ?organisationId .
       }
     `);
-    const sparqlJsonParser = new sjp.SparqlJsonParser();
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
     return parsedResults.map((r) => {
       return {
         vendor: {
-          id: r?.vendorId.value,
-          uri: r?.vendor.value,
+          id: r?.vendorId,
+          uri: r?.vendor,
         },
         organisation: {
-          id: r?.organisationId.value,
-          uri: r?.organisation.value,
+          id: r?.organisationId,
+          uri: r?.organisation,
         },
       };
     });
   }
+}
+
+async function removeDataFromVendorGraph(subject, config, graph) {
+  await mas.updateSudo(
+    `
+    DELETE {
+      GRAPH <${graph}> {
+        ${config.remove.delete}
+      }
+    }
+    WHERE {
+      BIND (${rst.termToString(subject)} AS ?subject)
+      ${config.remove.where}
+    }`,
+    undefined,
+    connectionOptions,
+  );
+}
+
+async function copyDataToVendorGraph(subject, config, graph) {
+  await mas.updateSudo(
+    `
+    INSERT {
+      GRAPH <${graph}> {
+        ${config.copy.insert}
+      }
+    }
+    WHERE {
+      BIND (${rst.termToString(subject)} AS ?subject)
+      ${config.copy.where}
+    }`,
+    undefined,
+    connectionOptions,
+  );
 }
