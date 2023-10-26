@@ -86,33 +86,74 @@ end
 ## Configuration
 
 Configuration about the interesting subject that need to be placed in the
-vendor specific graph is done in a separate configuration file. Create and
-mount via Docker the file in `config/subjectsAndPaths.js` with content that
-looks like the following:
+vendor specific graph is done in a separate configuration file. The process of
+selecting what data needs to be copied to the vendor graphs is done in multiple
+steps. The service checks the type of the received subjects, checks if the
+subjects match certain conditions and then executes remove and insert queries
+to update the data about those subjects in the vendor graph. All of these need
+to be configured. Create and mount via Docker the file in
+`config/subjectsAndPaths.js` with content that looks like the following:
 
 ```javascript
 export const subjects = [
   {
     type: 'http://rdf.myexperiment.org/ontologies/base/Submission',
+    trigger: `
+      ?subject a <http://rdf.myexperiment.org/ontologies/base/Submission> .
+    `,
     path: `
       ?subject
         pav:createdBy ?organisation ;
         pav:providedBy ?vendor .
     `,
+    remove: {
+      delete: `
+        ?subject ?p ?o .
+      `,
+      where: `
+        ?subject ?p ?o .
+      `,
+    },
+    copy: {
+      insert: `
+        ?subject ?p ?o .
+      `,
+      where: `
+        ?subject ?p ?o .
+      `,
+    },
   },
 ];
 ```
 
-This creates an Array with JavaScript objects that have a `type` and `path`
-property. The `type` property indicates that subjects of this specific type
-(`rdf:type`) are interesting to the Vendor and all information for this subject
-will be copied to the vendor specific graph. The `path` property supplies a
-string that is used in SPARQL queries to find the `vendor` and `organisation`.
-These will be used to recontruct the vendor specific graph to put the data in.
-The `subject` variable will be bound to the subject that matched with the
-`type` above. Use this to construct a path to the `vendor` and `organisation`
-variables. So, make sure at least all three variables are present in the path:
-`?subject`, `?vendor` and `?organisation`.
+Refer to this example file in the explanation below. This creates an Array with
+JavaScript objects that have the following properties:
+
+* `type`: property that indicates that subjects of this specific type
+  (`rdf:type`) will be used to trigger a copy of data to the vendor specific
+  graph. (E.g. we need to select all the subjects from the delta-notifier's
+  messages that are of type Submission.)
+* `trigger`: this is part of a SPARQL query where `?subject` is bound to the
+  subject that matched the `type` property from above. This SPARQL query is put
+  in an `ASK` pattern. If the pattern is satisfied, the subject is selected for
+  copying to the vendor graph. (E.g. in this simple example, make sure that
+  `?subject` is of the type Submission, which is trivially always true because
+  that was already checked due to the `type` property).
+* `path`: this is part of a SPARQL query where `?subject` is bound to the
+  subject that matched the `type` property from above. Create a path to
+  `?vendor` and `?organisation` entities so that the service can figure out in
+  which graph to put the data for the vendor. This query can result in multiple
+  vendor and organisation combinations. The data will be copied to all vendor
+  graphs.
+* `remove`: has subproperties `delete` and `where` that represent the bodies of
+  the `DELETE {...} WHERE {...}` pattern. Use these SPARQL patterns to select
+  the data that needs to be removed first before copying new data. This is to
+  make sure stale data is removed. (E.g. remove all information about the
+  Submission.)
+* `copy`: has subproperties `insert` and `where` that represent the bodies of
+  the `INSERT {...} WHERE {...}` pattern. Use these SPARQL patterns to select
+  the data that needs to be copied to the vendor graph. (E.g. select all the
+  information about the Submission to insert.)
 
 The following are environment variables that can be used to configure this
 service. Supply a value for them using the `environment` keyword in the
