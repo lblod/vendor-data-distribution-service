@@ -2,6 +2,9 @@ import envvar from 'env-var';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
+export const CREATOR =
+  'http://lblod.data.gift/services/vendor-data-distribution-service';
+
 export const RUN_MODE = envvar.get('NODE_ENV').default('production').asString();
 
 export const LOGLEVEL = envvar
