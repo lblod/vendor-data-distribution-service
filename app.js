@@ -14,6 +14,14 @@ const { namedNode, literal } = N3.DataFactory;
 import * as deltaData from './test/DeltaTestData.js';
 import * as vi from './test/VendorInfo.js';
 
+(function checkConfig() {
+  if (/virtuoso/.test(env.SPARQL_ENDPOINT_COPY_OPERATIONS)) {
+    console.warn(
+      'This service is configured to query Virtuoso directly! Make sure this is what you want.',
+    );
+  }
+})();
+
 app.use(
   bodyParser.json({
     type: function (req) {
