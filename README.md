@@ -163,6 +163,13 @@ service. Supply a value for them using the `environment` keyword in the
   ["production", "development", ...])</em> on top of the regular Node behaviour
   for these modes, this service only opens test routes when running in
   development.
+* `SPARQL_ENDPOINT_COPY_OPERATIONS`: <em>(optional, default:
+  "http://database:8890/sparql")</em> the SPARQL endpoint for the queries that
+  perform the copying of data to the vendor graph. As these queries can become
+  costly, you could configure them to run on Virtuoso directly. Not to be
+  confused with `MU_SPARQL_ENDPOINT`.
+* `MU_SPARQL_ENDPOINT`: <em>(optional, default:
+  "http://database:8890/sparql")</em> the regular endpoint for SPARQL queries.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
   "info", "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
