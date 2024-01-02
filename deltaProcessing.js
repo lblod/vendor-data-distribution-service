@@ -7,7 +7,7 @@ import * as conf from './config/subjectsAndPaths';
 const { namedNode } = N3.DataFactory;
 const sparqlJsonParser = new sjp.SparqlJsonParser();
 const connectionOptions = {
-  sparqlEndpoint: 'http://virtuoso:8890/sparql',
+  sparqlEndpoint: env.SPARQL_ENDPOINT_COPY_OPERATIONS,
   mayRetry: true,
 };
 

@@ -2,6 +2,11 @@ import envvar from 'env-var';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
+export const SPARQL_ENDPOINT_COPY_OPERATIONS = envvar
+  .get('SPARQL_ENDPOINT_COPY_OPERATIONS')
+  .default('http://database:8890/sparql')
+  .asUrlString();
+
 export const CREATOR =
   'http://lblod.data.gift/services/vendor-data-distribution-service';
 
