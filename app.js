@@ -123,7 +123,7 @@ function errorToStore(errorObject) {
   store.addQuad(error, ns.rdf`type`, ns.oslc`Error`);
   store.addQuad(error, ns.mu`uuid`, literal(errorUuid));
   store.addQuad(error, ns.oslc`message`, literal(errorObject.message));
-  store.addQuad(error, ns.dct`subject`, literal('Delta Notifier Messages'));
+  store.addQuad(error, ns.dct`subject`, literal('Error with vendor-data-distribution-service'));
   store.addQuad(
     error,
     ns.dct`created`,
