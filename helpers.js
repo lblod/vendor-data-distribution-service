@@ -79,6 +79,7 @@ export async function getAllWantedSubjects(subjects) {
   }
   return wantedSubjects;
 }
+
 /*
  * Get an object with information about the vendor that published a set of
  * data. Starting from the subject and its type (rdf:type).
