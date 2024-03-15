@@ -65,7 +65,7 @@ export async function getAllWantedSubjects(subjects) {
     for (const conf of confs) {
       const triggerResponse = await mas.querySudo(`
         ASK {
-          BIND (${rst.termToString(result.subject)} AS ?subject)
+          VALUES ?subject { ${rst.termToString(result.subject)} }
           ${conf.trigger}
         }`);
       const isTriggering = sparqlJsonParser.parseJsonBoolean(triggerResponse);
@@ -98,7 +98,7 @@ export async function getVendorInfoFromSubject(subject, type, config) {
     const response = await mas.querySudo(`
       ${env.SPARQL_PREFIXES}
       SELECT DISTINCT ?vendor ?vendorId ?organisation ?organisationId WHERE {
-        BIND (${rst.termToString(subject)} AS ?subject)
+        VALUES ?subject { ${rst.termToString(subject)} }
         ${config.path}
         ?vendor
           muAccount:canActOnBehalfOf ?organisation ;
@@ -132,7 +132,7 @@ export async function removeDataFromVendorGraph(subject, config, graph) {
       }
     }
     WHERE {
-      BIND (${rst.termToString(subject)} AS ?subject)
+      VALUES ?subject { ${rst.termToString(subject)} }
       ${config.remove.where}
     }`,
     undefined,
@@ -149,7 +149,7 @@ export async function copyDataToVendorGraph(subject, config, graph) {
       }
     }
     WHERE {
-      BIND (${rst.termToString(subject)} AS ?subject)
+      VALUES ?subject { ${rst.termToString(subject)} }
       ${config.copy.where}
     }`,
     undefined,
