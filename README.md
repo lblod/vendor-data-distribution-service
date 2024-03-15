@@ -168,6 +168,11 @@ service. Supply a value for them using the `environment` keyword in the
   perform the copying of data to the vendor graph. As these queries can become
   costly, you could configure them to run on Virtuoso directly. Not to be
   confused with `MU_SPARQL_ENDPOINT`.
+* `SPARQL_ENDPOINT_HEALING_OPERATIONS`: <em>(optional, default:
+  "http://virtuoso:8890/sparql")</em> the SPARQL endpoint for the queries that
+  perform the healing. <strong>Note: this defaults to Virtuoso directly! These
+  operations are not supposed to cause delta-notifier messages and are supposed
+  to run as fast as possible.</strong>
 * `MU_SPARQL_ENDPOINT`: <em>(optional, default:
   "http://database:8890/sparql")</em> the regular endpoint for SPARQL queries.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
@@ -178,6 +183,27 @@ service. Supply a value for them using the `environment` keyword in the
   "http://lblod.data.gift/errors")</em> graph in which to write errors to.
 * `ERROR_BASE`: <em>(optional, URI, default:
   "http://data.lblod.info/errors/")</em> base for the URI of created errors.
+
+## Healing
+
+<strong>This healing implementation is somewhat crude. Keep an eye on the logs
+to track its progress.</strong>
+
+Healing will cause this service to query the triplestore for all elegible
+subjects and copy their data to the vendor graph. From the existing config, the
+`type`, `trigger` and `path` properties are used to find elegible subjects. Old
+data is cleaned up with the `remove` property and new data is copied to the
+vendor graph(s) with the `insert` property. Healing will thus do the exact same
+thing as what otherwise would happen on a delta-message, but now the
+triplestore is queried for elegible subjects instead.
+
+To execute healing perform the following HTTP request:
+
+### POST `/healing`
+
+**Returns** `200` immediately, after which the healing will start.
+
+Inspect the logs for progress.
 
 ## Testing
 
