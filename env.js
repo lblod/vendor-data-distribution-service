@@ -9,7 +9,7 @@ export const SPARQL_ENDPOINT_COPY_OPERATIONS = envvar
 
 export const SPARQL_ENDPOINT_HEALING_OPERATIONS = envvar
   .get('SPARQL_ENDPOINT_HEALING_OPERATIONS')
-  .default('http://database:8890/sparql')
+  .default('http://virtuoso:8890/sparql')
   .asUrlString();
 
 export const CREATOR =
