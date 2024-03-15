@@ -20,7 +20,7 @@ following snippet in the `docker-compose.yml` as a service:
 
 ```yaml
 vendor-data-distribution:
-  image: lblod/vendor-data-distribution-service:1.0.0
+  image: lblod/vendor-data-distribution-service:x.y.z
 ```
 
 Because this service reacts to delta-messages, configure the `delta-notifier`
