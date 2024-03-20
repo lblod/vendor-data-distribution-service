@@ -7,6 +7,11 @@ export const SPARQL_ENDPOINT_COPY_OPERATIONS = envvar
   .default('http://database:8890/sparql')
   .asUrlString();
 
+export const SPARQL_ENDPOINT_HEALING_OPERATIONS = envvar
+  .get('SPARQL_ENDPOINT_HEALING_OPERATIONS')
+  .default('http://virtuoso:8890/sparql')
+  .asUrlString();
+
 export const CREATOR =
   'http://lblod.data.gift/services/vendor-data-distribution-service';
 

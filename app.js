@@ -4,6 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { NAMESPACES as ns } from './env';
 import { BASES as b } from './env';
 import * as del from './deltaProcessing';
+import * as hea from './healing';
 import * as test from './test/test';
 import * as env from './env';
 import * as pbu from './parse-bindings-utils';
@@ -48,6 +49,26 @@ app.post('/delta', async function (req, res, next) {
     const changesets = req.body;
     const result = await del.processDelta(changesets);
     handleProcessingResult(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/*
+ * This endpoint is used for healing. This will query the database for ALL
+ * subjects in the triplestore to see if that data should be inserted in the
+ * vendor graph. This effectively replaces the need for migrations and
+ * provides a way to add data to the vendor graph in case of configuration
+ * changes, or if something went wrong in the application.
+ */
+app.post('/healing', async function (req, res, next) {
+  // Send success code back. We will execute the healing later.
+  res.status(200).send({
+    message:
+      'Healing will start immediately. Check the logs of this service to track progress.',
+  });
+  try {
+    await hea.heal();
   } catch (err) {
     next(err);
   }
