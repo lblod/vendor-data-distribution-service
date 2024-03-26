@@ -12,9 +12,19 @@ const connectionOptions = {
   mayRetry: true,
 };
 
-export async function heal() {
+export async function heal(skipDeletes, onlyTypes) {
   for (const config of conf.subjects) {
     const { type, trigger, path } = config;
+
+    // Only proceed if a filter on type exists and if the current type is in
+    // the list, or if no filter exists.
+    if (onlyTypes.length > 0)
+      if (!onlyTypes.includes(type)) {
+        console.log(
+          `Skipping type ${type} because there is a filter and it is not in the filter [${onlyTypes.join(', ')}]`,
+        );
+        continue;
+      }
 
     // Construct one combined query, what otherwise happens on a delta
     const response = await mas.querySudo(
@@ -45,7 +55,8 @@ export async function heal() {
     for (let i = 0; i < parsedResults.length; i++) {
       const entry = parsedResults[i];
       const vendorGraph = `http://mu.semte.ch/graphs/vendors/${entry.vendorId.value}/${entry.organisationId.value}`;
-      await hel.removeDataFromVendorGraph(entry.subject, config, vendorGraph);
+      if (!skipDeletes)
+        await hel.removeDataFromVendorGraph(entry.subject, config, vendorGraph);
       await hel.copyDataToVendorGraph(entry.subject, config, vendorGraph);
 
       //Nice logging
