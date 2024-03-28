@@ -157,3 +157,28 @@ export async function copyDataToVendorGraph(subject, config, graph) {
     connectionOptions,
   );
 }
+
+export async function postProcess(subject, config, graph) {
+  await mas.updateSudo(
+    `
+    DELETE {
+      GRAPH <${graph}> {
+        ${config.post.delete}
+      }
+    }
+    INSERT {
+      GRAPH <${graph}> {
+        ${config.post.insert}
+      }
+    }
+    WHERE {
+      VALUES ?subject { ${rst.termToString(subject)} }
+      GRAPH <${graph}> {
+        ${config.post.where}
+      }
+    }
+    `,
+    undefined,
+    connectionOptions,
+  );
+}
