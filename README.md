@@ -90,8 +90,9 @@ vendor specific graph is done in a separate configuration file. The process of
 selecting what data needs to be copied to the vendor graphs is done in multiple
 steps. The service checks the type of the received subjects, checks if the
 subjects match certain conditions and then executes remove and insert queries
-to update the data about those subjects in the vendor graph. All of these need
-to be configured. Create and mount via Docker the file in
+to update the data about those subjects in the vendor graph. There is also an
+optional post processing step on the subject in the vendor graph. All of these
+need to be configured. Create and mount via Docker the file in
 `config/subjectsAndPaths.js` with content that looks like the following:
 
 ```javascript
@@ -115,6 +116,17 @@ export const subjects = [
       `,
     },
     copy: {
+      insert: `
+        ?subject ?p ?o .
+      `,
+      where: `
+        ?subject ?p ?o .
+      `,
+    },
+    post: {
+      delete: `
+        ?subject ?p ?o .
+      `,
       insert: `
         ?subject ?p ?o .
       `,
@@ -154,6 +166,14 @@ JavaScript objects that have the following properties:
   the `INSERT {...} WHERE {...}` pattern. Use these SPARQL patterns to select
   the data that needs to be copied to the vendor graph. (E.g. select all the
   information about the Submission to insert.)
+* `post`: (optional) has subproperties `delete`, `insert` and `where` that
+  represent the bodies of a `DELETE {...} INSERT {...} WHERE {...}` pattern.
+  This query is executed as post processing on the data in the vendor graph,
+  with the variable `?subject` in the `where` bound to the subject that is
+  matched in the previous steps. The `insert` and `delete` properties are
+  optional, but cannot both be undefined. If the `post` property exists, a
+  `where` subproperty also needs to exist to make this configuration valid. Use
+  this step to translate predicates, add extra calculated predicates, ...
 
 The following are environment variables that can be used to configure this
 service. Supply a value for them using the `environment` keyword in the
