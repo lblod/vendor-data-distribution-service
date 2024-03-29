@@ -68,7 +68,15 @@ app.post('/healing', async function (req, res, next) {
       'Healing will start immediately. Check the logs of this service to track progress.',
   });
   try {
-    await hea.heal();
+    const skipDeletes = !!req.body?.skipDeletes || false;
+    const onlyTypes =
+      req.body?.onlyTheseTypes?.constructor?.name === 'Array'
+        ? req.body?.onlyTheseTypes
+        : [];
+    console.log(
+      `Will start healing with skipDeletes ${skipDeletes} and filter [${onlyTypes.join(', ')}]`,
+    );
+    await hea.heal(skipDeletes, onlyTypes);
   } catch (err) {
     next(err);
   }

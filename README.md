@@ -201,6 +201,26 @@ To execute healing perform the following HTTP request:
 
 ### POST `/healing`
 
+**Body** *OPTIONAL* JSON with the following structure:
+
+```json
+{
+  "skipDeletes": true,
+  "onlyTheseTypes": [ "http://rdf.myexperiment.org/ontologies/base/Submission" ]
+}
+```
+
+* `skipDeletes`: <em>(optional, default: `false`)</em> if set to `true`, the
+  deletes are not executed. This is usually used on an initial healing when
+  there is nothing to delete. Generally used when nothing has changed, but only
+  incrementally added (e.g. a new vendor, an new type to copy to the vendors,
+  ...).
+* `onlyTheseTypes`: <em>(optional, default: `[]`)</em> an array of IRI's in
+  string form that represent the type, as defined in the config, to copy to the
+  vendor. This can speed up the healing when only one type is needed (e.g. when
+  the config items overlap). When empty, all types are copied to the vendor
+  graph.
+
 **Returns** `200` immediately, after which the healing will start.
 
 Inspect the logs for progress.

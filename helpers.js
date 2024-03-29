@@ -125,6 +125,8 @@ export async function getVendorInfoFromSubject(subject, type, config) {
 }
 
 export async function removeDataFromVendorGraph(subject, config, graph) {
+  // No filter on graph in the where clause, we need to be able to delete
+  // everything
   await mas.updateSudo(
     `
     DELETE {
@@ -150,8 +152,11 @@ export async function copyDataToVendorGraph(subject, config, graph) {
       }
     }
     WHERE {
-      VALUES ?subject { ${rst.termToString(subject)} }
-      ${config.copy.where}
+      GRAPH ?g {
+        VALUES ?subject { ${rst.termToString(subject)} }
+        ${config.copy.where}
+      }
+      FILTER (REGEX(STR(?g), "^http://mu.semte.ch/graphs/organizations/"))
     }`,
     undefined,
     connectionOptions,

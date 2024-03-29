@@ -51,9 +51,6 @@ export async function processDelta(changesets) {
     for (const vendorInfo of vendorInfos) {
       const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`;
       await hel.removeDataFromVendorGraph(subject, config, vendorGraph);
-    }
-    for (const vendorInfo of vendorInfos) {
-      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`;
       await hel.copyDataToVendorGraph(subject, config, vendorGraph);
     }
 
