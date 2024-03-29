@@ -159,18 +159,32 @@ export async function copyDataToVendorGraph(subject, config, graph) {
 }
 
 export async function postProcess(subject, config, graph) {
-  await mas.updateSudo(
-    `
+  // No delete and insert → nothing to do
+  if (!(config?.post?.delete || config?.post?.insert)) return;
+  // No where → invalid post processing config
+  if (!config?.post?.where) return;
+
+  const deletePattern = config?.post?.delete
+    ? `
     DELETE {
       GRAPH <${graph}> {
         ${config.post.delete}
       }
-    }
+    }`
+    : '';
+  const insertPattern = config?.post?.insert
+    ? `
     INSERT {
       GRAPH <${graph}> {
         ${config.post.insert}
       }
-    }
+    }`
+    : '';
+
+  await mas.updateSudo(
+    `
+    ${deletePattern}
+    ${insertPattern}
     WHERE {
       VALUES ?subject { ${rst.termToString(subject)} }
       GRAPH <${graph}> {
