@@ -58,6 +58,7 @@ export async function heal(skipDeletes, onlyTypes) {
       if (!skipDeletes)
         await hel.removeDataFromVendorGraph(entry.subject, config, vendorGraph);
       await hel.copyDataToVendorGraph(entry.subject, config, vendorGraph);
+      await hel.postProcess(entry.subject, config, vendorGraph);
 
       //Nice logging
       const percentage = Math.round(((i + 1) * 100) / parsedResults.length);
