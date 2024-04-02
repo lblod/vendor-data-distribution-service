@@ -48,6 +48,32 @@ the `rules.js` file for the `delta-notifier` service.
 }
 ```
 
+Because this service is going to create a lot of data, but in very specific
+graphs that are not accessible to `mu-cl-resources`, you should also add the
+`mu-call-scope-id` as an opt-out in the `delta-notifier` config for
+`mu-cl-resources`. Without this opt-out, the service might have to endure heavy
+loads of deltas that are not useful, wasting resources. To add this scope
+identifier, make sure the config for `mu-cl-resources` has the
+`optOutMuScopeIds` property like in the following example:
+
+```JavaScript
+{
+  match: {},
+  callback: {
+    url: "http://resource/.mu/delta",
+    method: "POST"
+  },
+  options: {
+    resourceFormat: "v0.0.1",
+    gracePeriod: 1000,
+    ignoreFromSelf: true,
+    optOutMuScopeIds: [
+      "http://redpencil.data.gift/id/concept/muScope/deltas/vendor-data",
+    ],
+  }
+},
+```
+
 For making sure the vendors can only read from their own graph, you can
 configure `mu-authorization` with the following specification:
 
@@ -195,6 +221,13 @@ service. Supply a value for them using the `environment` keyword in the
   to run as fast as possible.</strong>
 * `MU_SPARQL_ENDPOINT`: <em>(optional, default:
   "http://database:8890/sparql")</em> the regular endpoint for SPARQL queries.
+* `MU_SCOPE`: <em>(optional, default:
+  "http://redpencil.data.gift/id/concept/muScope/deltas/vendor-data")</em> this
+  is the `mu-call-scope-id` that can be used in the `delta-notifier` config as
+  an opt-out. See the `delta-notifier` setup above. If you bypass
+  `mu-authorization` using some of the above evironment variables, this scope
+  id has no effect. It only affects queries through `mu-authorization` and the
+  `delta-notifier`.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
   "info", "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
