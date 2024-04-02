@@ -37,6 +37,11 @@ export const ERROR_BASE = envvar
   .default('http://data.lblod.info/errors/')
   .asUrlString();
 
+export const MU_SCOPE = envvar
+  .get('MU_SCOPE')
+  .default('http://redpencil.data.gift/id/concept/muScope/deltas/vendor-data')
+  .asUrlString();
+
 const PREFIXES = {
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
   xsd: 'http://www.w3.org/2001/XMLSchema#',
