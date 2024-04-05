@@ -225,7 +225,7 @@ service. Supply a value for them using the `environment` keyword in the
   "http://redpencil.data.gift/id/concept/muScope/deltas/vendor-data")</em> this
   is the `mu-call-scope-id` that can be used in the `delta-notifier` config as
   an opt-out. See the `delta-notifier` setup above. If you bypass
-  `mu-authorization` using some of the above evironment variables, this scope
+  `mu-authorization` using some of the above environment variables, this scope
   id has no effect. It only affects queries through `mu-authorization` and the
   `delta-notifier`.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
