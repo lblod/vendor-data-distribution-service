@@ -6,7 +6,10 @@ import * as N3 from 'n3';
 import * as conf from './config/subjectsAndPaths';
 const { namedNode } = N3.DataFactory;
 const sparqlJsonParser = new sjp.SparqlJsonParser();
-const connectionOptions = {
+const sparqlConnectionHeaders = {
+  'mu-call-scope-id': env.MU_SCOPE,
+};
+const sparqlConnectionOptions = {
   sparqlEndpoint: env.SPARQL_ENDPOINT_COPY_OPERATIONS,
   mayRetry: true,
 };
@@ -138,8 +141,8 @@ export async function removeDataFromVendorGraph(subject, config, graph) {
       VALUES ?subject { ${rst.termToString(subject)} }
       ${config.remove.where}
     }`,
-    undefined,
-    connectionOptions,
+    sparqlConnectionHeaders,
+    sparqlConnectionOptions,
   );
 }
 
@@ -158,8 +161,8 @@ export async function copyDataToVendorGraph(subject, config, graph) {
       }
       FILTER (REGEX(STR(?g), "^http://mu.semte.ch/graphs/organizations/"))
     }`,
-    undefined,
-    connectionOptions,
+    sparqlConnectionHeaders,
+    sparqlConnectionOptions,
   );
 }
 
@@ -197,7 +200,7 @@ export async function postProcess(subject, config, graph) {
       }
     }
     `,
-    undefined,
-    connectionOptions,
+    sparqlConnectionHeaders,
+    sparqlConnectionOptions,
   );
 }
