@@ -127,7 +127,13 @@ export async function getVendorInfoFromSubject(subject, type, config) {
   }
 }
 
-export async function removeDataFromVendorGraph(subject, config, graph) {
+export async function removeDataFromVendorGraph(
+  subject,
+  config,
+  graph,
+  conHeaders = sparqlConnectionHeaders,
+  conOptions = sparqlConnectionOptions,
+) {
   // No filter on graph in the where clause, we need to be able to delete
   // everything
   await mas.updateSudo(
@@ -141,12 +147,18 @@ export async function removeDataFromVendorGraph(subject, config, graph) {
       VALUES ?subject { ${rst.termToString(subject)} }
       ${config.remove.where}
     }`,
-    sparqlConnectionHeaders,
-    sparqlConnectionOptions,
+    conHeaders,
+    conOptions,
   );
 }
 
-export async function copyDataToVendorGraph(subject, config, graph) {
+export async function copyDataToVendorGraph(
+  subject,
+  config,
+  graph,
+  conHeaders = sparqlConnectionHeaders,
+  conOptions = sparqlConnectionOptions,
+) {
   await mas.updateSudo(
     `
     INSERT {
@@ -161,12 +173,18 @@ export async function copyDataToVendorGraph(subject, config, graph) {
       }
       FILTER (REGEX(STR(?g), "^http://mu.semte.ch/graphs/organizations/"))
     }`,
-    sparqlConnectionHeaders,
-    sparqlConnectionOptions,
+    conHeaders,
+    conOptions,
   );
 }
 
-export async function postProcess(subject, config, graph) {
+export async function postProcess(
+  subject,
+  config,
+  graph,
+  conHeaders = sparqlConnectionHeaders,
+  conOptions = sparqlConnectionOptions,
+) {
   // No delete and insert → nothing to do
   if (!(config?.post?.delete || config?.post?.insert)) return;
   // No where → invalid post processing config
@@ -200,7 +218,7 @@ export async function postProcess(subject, config, graph) {
       }
     }
     `,
-    sparqlConnectionHeaders,
-    sparqlConnectionOptions,
+    conHeaders,
+    conOptions,
   );
 }

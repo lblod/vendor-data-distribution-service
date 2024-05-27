@@ -7,7 +7,10 @@ import * as sjp from 'sparqljson-parse';
 const sparqlJsonParser = new sjp.SparqlJsonParser();
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
-const connectionOptions = {
+const sparqlConnectionHeaders = {
+  'mu-call-scope-id': env.MU_SCOPE,
+};
+const sparqlConnectionOptions = {
   sparqlEndpoint: env.SPARQL_ENDPOINT_HEALING_OPERATIONS,
   mayRetry: true,
 };
@@ -46,8 +49,8 @@ export async function heal(skipDeletes, onlyTypes) {
           mu:uuid ?organisationId .
       }
     `,
-      undefined,
-      connectionOptions,
+      sparqlConnectionHeaders,
+      sparqlConnectionOptions,
     );
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
 
@@ -56,9 +59,27 @@ export async function heal(skipDeletes, onlyTypes) {
       const entry = parsedResults[i];
       const vendorGraph = `http://mu.semte.ch/graphs/vendors/${entry.vendorId.value}/${entry.organisationId.value}`;
       if (!skipDeletes)
-        await hel.removeDataFromVendorGraph(entry.subject, config, vendorGraph);
-      await hel.copyDataToVendorGraph(entry.subject, config, vendorGraph);
-      await hel.postProcess(entry.subject, config, vendorGraph);
+        await hel.removeDataFromVendorGraph(
+          entry.subject,
+          config,
+          vendorGraph,
+          sparqlConnectionHeaders,
+          sparqlConnectionOptions,
+        );
+      await hel.copyDataToVendorGraph(
+        entry.subject,
+        config,
+        vendorGraph,
+        sparqlConnectionHeaders,
+        sparqlConnectionOptions,
+      );
+      await hel.postProcess(
+        entry.subject,
+        config,
+        vendorGraph,
+        sparqlConnectionHeaders,
+        sparqlConnectionOptions,
+      );
 
       //Nice logging
       const percentage = Math.round(((i + 1) * 100) / parsedResults.length);
