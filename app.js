@@ -46,6 +46,7 @@ app.post('/delta', async function (req, res, next) {
   res.status(200).end();
 
   try {
+    await randomDelay(env.MIN_DELAY_TO_PROCESS_NEXT_DELTA, env.MAX_DELAY_TO_PROCESS_NEXT_DELTA);
     const changesets = req.body;
     const result = await del.processDelta(changesets);
     handleProcessingResult(result);
@@ -210,4 +211,11 @@ function handleProcessingResult(result) {
   if (result.success) return;
   if (env.LOGLEVEL == 'error' || env.LOGLEVEL == 'info')
     console.log(result.reason);
+}
+
+async function randomDelay(min = 1000, max = 2000) {
+  return new Promise(resolve => {
+    const duration = Math.random() * (max - min) + min;
+    setTimeout(resolve, duration);
+  });
 }

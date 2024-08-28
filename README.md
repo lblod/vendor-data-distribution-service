@@ -237,6 +237,9 @@ service. Supply a value for them using the `environment` keyword in the
 * `ERROR_BASE`: <em>(optional, URI, default:
   "http://data.lblod.info/errors/")</em> base for the URI of created errors.
 
+* `MIN_DELAY_TO_PROCESS_NEXT_DELTA`: (to avoid potential race conditions) Minimum delay in ms before processing next delta. Default is 1000 ms.
+* `MAX_DELAY_TO_PROCESS_NEXT_DELTA`: Maximum delay in ms before processing next delta. Default is 2000 ms.
+
 ## Healing
 
 <strong>This healing implementation is somewhat crude. Keep an eye on the logs
