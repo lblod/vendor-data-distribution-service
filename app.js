@@ -41,12 +41,12 @@ app.use(
 );
 
 app.post('/delta', async function (req, res, next) {
+  await randomDelay(env.MIN_DELAY_TO_PROCESS_NEXT_DELTA, env.MAX_DELAY_TO_PROCESS_NEXT_DELTA);
   // We can already send a 200 back. The delta-notifier does not care about the
   // result, as long as the request is closed.
   res.status(200).end();
 
   try {
-    await randomDelay(env.MIN_DELAY_TO_PROCESS_NEXT_DELTA, env.MAX_DELAY_TO_PROCESS_NEXT_DELTA);
     const changesets = req.body;
     const result = await del.processDelta(changesets);
     handleProcessingResult(result);
