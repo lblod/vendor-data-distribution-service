@@ -216,6 +216,7 @@ function handleProcessingResult(result) {
 async function randomDelay(min = 1000, max = 2000) {
   return new Promise(resolve => {
     const duration = Math.random() * (max - min) + min;
+    console.log(`Waiting ${duration}...`);
     setTimeout(resolve, duration);
   });
 }
