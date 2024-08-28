@@ -14,7 +14,7 @@ import * as N3 from 'n3';
 const { namedNode, literal } = N3.DataFactory;
 import * as deltaData from './test/DeltaTestData.js';
 import * as vi from './test/VendorInfo.js';
-
+import { Lock } from 'async-await-mutex-lock';
 ///////////////////////////////////////////////////////////////////////////////
 // At boot
 ///////////////////////////////////////////////////////////////////////////////
@@ -40,18 +40,26 @@ app.use(
   }),
 );
 
+const lock = new Lock();
+
 app.post('/delta', async function (req, res, next) {
-  await randomDelay(env.MIN_DELAY_TO_PROCESS_NEXT_DELTA, env.MAX_DELAY_TO_PROCESS_NEXT_DELTA);
+
   // We can already send a 200 back. The delta-notifier does not care about the
   // result, as long as the request is closed.
   res.status(200).end();
 
+  await lock.acquire();
+
   try {
+    await randomDelay(env.MIN_DELAY_TO_PROCESS_NEXT_DELTA,
+                      env.MAX_DELAY_TO_PROCESS_NEXT_DELTA);
     const changesets = req.body;
     const result = await del.processDelta(changesets);
     handleProcessingResult(result);
   } catch (err) {
     next(err);
+  } finally {
+    lock.release();
   }
 });
 
