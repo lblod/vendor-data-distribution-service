@@ -14,7 +14,7 @@ import * as N3 from 'n3';
 const { namedNode, literal } = N3.DataFactory;
 import * as deltaData from './test/DeltaTestData.js';
 import * as vi from './test/VendorInfo.js';
-
+import { Lock } from 'async-await-mutex-lock';
 ///////////////////////////////////////////////////////////////////////////////
 // At boot
 ///////////////////////////////////////////////////////////////////////////////
@@ -40,17 +40,26 @@ app.use(
   }),
 );
 
+const lock = new Lock();
+
 app.post('/delta', async function (req, res, next) {
+
   // We can already send a 200 back. The delta-notifier does not care about the
   // result, as long as the request is closed.
   res.status(200).end();
 
+  await lock.acquire();
+
   try {
+    await randomDelay(env.MIN_DELAY_TO_PROCESS_NEXT_DELTA,
+                      env.MAX_DELAY_TO_PROCESS_NEXT_DELTA);
     const changesets = req.body;
     const result = await del.processDelta(changesets);
     handleProcessingResult(result);
   } catch (err) {
     next(err);
+  } finally {
+    lock.release();
   }
 });
 
@@ -210,4 +219,12 @@ function handleProcessingResult(result) {
   if (result.success) return;
   if (env.LOGLEVEL == 'error' || env.LOGLEVEL == 'info')
     console.log(result.reason);
+}
+
+async function randomDelay(min = 1000, max = 2000) {
+  return new Promise(resolve => {
+    const duration = Math.random() * (max - min) + min;
+    console.log(`Waiting ${duration} ms...`);
+    setTimeout(resolve, duration);
+  });
 }
