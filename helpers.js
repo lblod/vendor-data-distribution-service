@@ -42,7 +42,10 @@ export function getAllUniqueSubjects(changesets) {
  * @async
  * @function
  * @param {Array(NamedNode)} subjects - An array with subjects.
- * @returns {Array(NamedNode)} Same as input parameter, but filtered.
+ * @returns {Array(Object)} An array of objects with the keys `subject`, `type`
+ * and `config`, where `subject` points to a NamedNode from the input array
+ * that is of interest. `type` is the `rdf:type` of that subject, and `config`
+ * is the config object that matched with the subject.
  *
  * WARNING:
  *  - The current implementation works for deletes too, but that's

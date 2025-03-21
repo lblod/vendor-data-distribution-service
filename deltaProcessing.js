@@ -22,7 +22,7 @@ export async function processDelta(changesets) {
   // Filter all subjects (just all subjects, filter later which ones needed)
   const allSubjects = hel.getAllUniqueSubjects(changesets);
 
-  // Query all those subjects to see which are intersting according to a
+  // Query all those subjects to see which are interesting according to a
   // configuration.
   const wantedSubjects = await hel.getAllWantedSubjects(allSubjects);
 
