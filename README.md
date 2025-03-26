@@ -259,6 +259,25 @@ service. Supply a value for them using the `environment` keyword in the
   `mu-authorization` using some of the above environment variables, this scope
   id has no effect. It only affects queries through `mu-authorization` and the
   `delta-notifier`.
+* `TEMP_GRAPH`: <em>(optional, default:
+  "http://mu.semte.ch/graphs/vendor-data-distribution/temp")</em> graph for
+  storing the temporary subject and identifier combinations for later batch
+  processing.
+* `PROCESSING_INTERVAL`: <em>(optional, default: 300000)</em> time in ms to
+  wait after a delta message has arrived before starting the batch processing.
+  Delta messages will only create a timer for this interval if no other timer
+  is running. Set this timer interval low for fast processing, but the same
+  subjects might be processed multiple times. Larger intervals allow more time
+  for the delta messages to have settled and reduce the amount of reprocessing
+  the same subjects.
+* `PROCESSING_INTERVAL_SIZE`: <em>(optional, default: 100)</em> amount of
+  subject-identifier combinations that will be batch processed at a time. Keep
+  this relatively low (below 500), because otherwise delete queries become too
+  large and fail.
+* `CLEANUP_CRON`: <em>(optional, default: "30 * * * *")</em> periodic cleanup
+  job timer. This performs a batch processing of subjects from the temporary
+  graph. Can be kept to a minimum, because there should normally be no
+  leftovers except in the event of catastrophic failure.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
   "info", "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
