@@ -272,11 +272,3 @@ function handleProcessingResult(result) {
   if (env.LOGLEVEL == 'error' || env.LOGLEVEL == 'info')
     console.log(result.reason);
 }
-
-async function randomDelay(min = 1000, max = 2000) {
-  return new Promise((resolve) => {
-    const duration = Math.random() * (max - min) + min;
-    console.log(`Waiting ${duration} ms...`);
-    setTimeout(resolve, duration);
-  });
-}
