@@ -57,16 +57,6 @@ export const ERROR_BASE = envvar
   .default('http://data.lblod.info/errors/')
   .asUrlString();
 
-export const MIN_DELAY_TO_PROCESS_NEXT_DELTA = envvar
-  .get('MIN_DELAY_TO_PROCESS_NEXT_DELTA')
-  .default('1000')
-  .asIntPositive();
-
-export const MAX_DELAY_TO_PROCESS_NEXT_DELTA = envvar
-  .get('MAX_DELAY_TO_PROCESS_NEXT_DELTA')
-  .default('2000')
-  .asIntPositive();
-
 export const MU_SCOPE = envvar
   .get('MU_SCOPE')
   .default('http://redpencil.data.gift/id/concept/muScope/deltas/vendor-data')
