@@ -121,7 +121,11 @@ export async function getSubjectsForLaterProcessing() {
  * the response from `getSubjectsForLaterProcessing`.
  * @returns {undefined} Nothing
  */
-export async function removeSubjectsForLaterProcessing(store) {
+export async function removeSubjectsForLaterProcessing(
+  store,
+  conHeaders = sparqlConnectionHeaders,
+  conOptions = sparqlConnectionOptions,
+) {
   if (store.size > 0) {
     const triples = [];
     store.forEach((quad) => {
@@ -130,13 +134,17 @@ export async function removeSubjectsForLaterProcessing(store) {
       );
     });
     const graph = namedNode(env.TEMP_GRAPH);
-    await mas.updateSudo(`
+    await mas.updateSudo(
+      `
       DELETE DATA {
         GRAPH ${rst.termToString(graph)} {
           ${triples.join('\n')}
         }
       }
-    `);
+    `,
+      conHeaders,
+      conOptions,
+    );
   }
 }
 
