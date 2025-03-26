@@ -66,7 +66,7 @@ app.post('/delta', async function (req, res, next) {
   } catch (err) {
     next(err);
   } finally {
-    timerLock.release();
+    if (timerLock.isAcquired()) timerLock.release();
   }
 });
 
@@ -82,8 +82,8 @@ async function processTemp() {
   } catch (err) {
     await logError(err);
   } finally {
-    timerLock.release();
-    processingLock.release();
+    if (timerLock.isAcquired()) timerLock.release();
+    if (processingLock.isAcquired()) processingLock.release();
   }
 }
 
