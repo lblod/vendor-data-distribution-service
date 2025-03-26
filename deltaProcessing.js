@@ -1,5 +1,7 @@
 import * as rst from 'rdf-string-ttl';
 import * as hel from './helpers';
+import * as N3 from 'n3';
+const { namedNode } = N3.DataFactory;
 
 export async function processTemp() {
   const subjectStore = await hel.getSubjectsForLaterProcessing();
@@ -65,7 +67,9 @@ export async function processSubjects(subjects) {
     }
 
     for (const vendorInfo of vendorInfos) {
-      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`;
+      const vendorGraph = namedNode(
+        `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id.value}/${vendorInfo.organisation.id.value}`,
+      );
       await hel.removeDataFromVendorGraph(subject, config, vendorGraph);
       await hel.copyDataToVendorGraph(subject, config, vendorGraph);
       await hel.postProcess(subject, config, vendorGraph);

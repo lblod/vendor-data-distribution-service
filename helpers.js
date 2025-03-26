@@ -212,7 +212,7 @@ export async function removeDataFromVendorGraph(
   await mas.updateSudo(
     `
     DELETE {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.remove.delete}
       }
     }
@@ -235,7 +235,7 @@ export async function copyDataToVendorGraph(
   await mas.updateSudo(
     `
     INSERT {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.copy.insert}
       }
     }
@@ -266,7 +266,7 @@ export async function postProcess(
   const deletePattern = config?.post?.delete
     ? `
     DELETE {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.post.delete}
       }
     }`
@@ -274,7 +274,7 @@ export async function postProcess(
   const insertPattern = config?.post?.insert
     ? `
     INSERT {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.post.insert}
       }
     }`
@@ -286,7 +286,7 @@ export async function postProcess(
     ${insertPattern}
     WHERE {
       VALUES ?subject { ${rst.termToString(subject)} }
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.post.where}
       }
     }
