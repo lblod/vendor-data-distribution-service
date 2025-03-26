@@ -18,6 +18,8 @@ const sparqlConnectionOptions = {
 /*
  * Gather distinct subjects from all the changes in the changesets.
  *
+ * TODO: check if we need to also include the subjects from DELETES
+ *
  * @function
  * @param {Array(Object)} changesets - This array contains JavaScript objects
  * that are in the regular delta message format from the delta-notifier.
@@ -36,6 +38,19 @@ export function getAllUniqueSubjects(changesets) {
   return subjectStrings.map(namedNode);
 }
 
+/*
+ * Insert in a temp graph the given subjects with a unique identifier. These
+ * unique triples will be used to process the subjects. New deltas give new
+ * unique identifiers for a subjects and so that subjects will correctly be
+ * processed again later.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {Array(NamedNode)} subjects - An array of the subjects that need to
+ * be inserted in the temp graph for later processing.
+ * @returns {undefined} Nothing
+ */
 export async function insertSubjectsForLaterProcessing(
   subjects,
   conHeaders = sparqlConnectionHeaders,
@@ -61,6 +76,17 @@ export async function insertSubjectsForLaterProcessing(
   );
 }
 
+/*
+ * Get a collection of subjects and their unique processing identifier from the
+ * temp graph. Subjects are grouped as much as possible to minimize the amount
+ * of times a subjects will be processed over time.
+ *
+ * @public
+ * @async
+ * @function
+ * @returns {N3.Store} A store containing the subjects and their unique
+ * processing identifier.
+ */
 export async function getSubjectsForLaterProcessing() {
   const graph = namedNode(env.TEMP_GRAPH);
   const response = await mas.querySudo(`
@@ -83,6 +109,18 @@ export async function getSubjectsForLaterProcessing() {
   return store;
 }
 
+/*
+ * Removes from the temp graph the given subjects with their unique identifier.
+ * Not just all the triples for that subject, but only the identifiers that
+ * have been processed.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {N3.Store} store - Store with the subjects and identifiers, just like
+ * the response from `getSubjectsForLaterProcessing`.
+ * @returns {undefined} Nothing
+ */
 export async function removeSubjectsForLaterProcessing(store) {
   if (store.size > 0) {
     const triples = [];
@@ -106,6 +144,7 @@ export async function removeSubjectsForLaterProcessing(store) {
  * Fetch types (rdf:type) for the subjects and filter them by the
  * configuration.
  *
+ * @public
  * @async
  * @function
  * @param {Array(NamedNode)} subjects - An array with subjects.
@@ -161,6 +200,7 @@ export async function getAllWantedSubjects(subjects) {
  * Get an object with information about the vendor that published a set of
  * data. Starting from the subject and its type (rdf:type).
  *
+ * @public
  * @async
  * @function
  * @param {NamedNode} subject - Represents the URI of the subject that is being
@@ -201,6 +241,20 @@ export async function getVendorInfoFromSubject(subject, type, config) {
   }
 }
 
+/*
+ * Perform the removal of data from the vendor graph, based on the config for
+ * that type of subject. This selects data from anywhere to delete from the
+ * vendor graph in order not to miss anything.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} subject - Subject for which data is to be removed.
+ * @param {Object} config - Configuration object for that subject. Should
+ * contain the `remove` property to be able to construct a DELETE query.
+ * @param {NamedNode} graph - Vendor graph to remove the data from.
+ * @returns {undefined} Nothing
+ */
 export async function removeDataFromVendorGraph(
   subject,
   config,
@@ -226,6 +280,19 @@ export async function removeDataFromVendorGraph(
   );
 }
 
+/*
+ * Copy data from organisation graphs to the given vendor graph for the given
+ * subject.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} subject - Subject for which data is to be copied.
+ * @param {Object} config - Configuration object for that subject. Should
+ * contain the `copy` property to be able to construct an INSERT query.
+ * @param {NamedNode} graph - Vendor graph to copy data to.
+ * @returns {undefined} Nothing
+ */
 export async function copyDataToVendorGraph(
   subject,
   config,
@@ -252,6 +319,22 @@ export async function copyDataToVendorGraph(
   );
 }
 
+/*
+ * Perform post processing on the subject in the vendor graph. A configuration
+ * might contain a query that is to be executed on the subject to translate
+ * properties, to add extra derived triples, ... Both INSERT and DELETE
+ * patterns are combined into a single query.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} subject - Subject to perform post processing on.
+ * @param {Object} config - Configuration object for that subject. Should
+ * contain the `post` property to be able to construct DELETE and INSERT
+ * queries.
+ * @param {NamedNode} graph - Vendor graph in which to perform the processing.
+ * @returns {undefined} Nothing
+ */
 export async function postProcess(
   subject,
   config,
