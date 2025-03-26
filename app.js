@@ -75,6 +75,22 @@ app.post('/delta', async function (req, res, next) {
 });
 
 /*
+ * This endpoint is meant to manually be able to start the processing of
+ * batches from the temporary graph.
+ */
+app.post('/process-temp', async function (req, res, next) {
+  // Send success code back. We will execute the processing later
+  res.status(200).send({
+    message: 'Processing the temporary graph will start.',
+  });
+  try {
+    await processTemp();
+  } catch (err) {
+    next(err);
+  }
+});
+
+/*
  * Process batches from the temporary graph, print results and restart a timer
  * for a new processing round if there where any subjects in the batch.
  */
