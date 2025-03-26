@@ -287,6 +287,14 @@ service. Supply a value for them using the `environment` keyword in the
 * `ERROR_BASE`: <em>(optional, URI, default:
   "http://data.lblod.info/errors/")</em> base for the URI of created errors.
 
+## Manually start batch processing
+
+You can manually start the batch processing by calling the following endpoint. This should normally not be necessary, because this is done during the cleanup CRON job, and even that cleanup job should be redundant.
+
+### POST `/process-temp`
+
+**Returns** `200` immediately, after which the processing will start.
+
 ## Healing
 
 <strong>This healing implementation is somewhat crude. Keep an eye on the logs
