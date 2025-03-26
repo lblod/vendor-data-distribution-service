@@ -232,6 +232,8 @@ JavaScript objects that have the following properties:
   `where` subproperty also needs to exist to make this configuration valid. Use
   this step to translate predicates, add extra calculated predicates, ...
 
+### Environment variables
+
 The following are environment variables that can be used to configure this
 service. Supply a value for them using the `environment` keyword in the
 `docker-compose.yml` file for this service.
