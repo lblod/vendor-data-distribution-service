@@ -119,37 +119,41 @@ export async function removeSubjectsForLaterProcessing(store) {
  *    called. So: be cautious when shuffling this function around
  */
 export async function getAllWantedSubjects(subjects) {
-  const response = await mas.querySudo(`
-    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+  if (subjects.length > 0) {
+    const response = await mas.querySudo(`
+      PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-    SELECT DISTINCT ?subject ?type WHERE {
-      VALUES ?subject {
-        ${subjects.map(rst.termToString).join(' ')}
+      SELECT DISTINCT ?subject ?type WHERE {
+        VALUES ?subject {
+          ${subjects.map(rst.termToString).join(' ')}
+        }
+        ?subject rdf:type ?type .
       }
-      ?subject rdf:type ?type .
-    }
-  `);
-  const parsedResults = sparqlJsonParser.parseJsonResults(response);
-  const wantedSubjects = [];
+    `);
+    const parsedResults = sparqlJsonParser.parseJsonResults(response);
+    const wantedSubjects = [];
 
-  for (const result of parsedResults) {
-    const confs = conf.subjects.filter((s) => s.type === result.type.value);
-    for (const conf of confs) {
-      const triggerResponse = await mas.querySudo(`
-        ASK {
-          VALUES ?subject { ${rst.termToString(result.subject)} }
-          ${conf.trigger}
-        }`);
-      const isTriggering = sparqlJsonParser.parseJsonBoolean(triggerResponse);
-      if (isTriggering)
-        wantedSubjects.push({
-          subject: result.subject,
-          type: result.type,
-          config: conf,
-        });
+    for (const result of parsedResults) {
+      const confs = conf.subjects.filter((s) => s.type === result.type.value);
+      for (const conf of confs) {
+        const triggerResponse = await mas.querySudo(`
+          ASK {
+            VALUES ?subject { ${rst.termToString(result.subject)} }
+            ${conf.trigger}
+          }`);
+        const isTriggering = sparqlJsonParser.parseJsonBoolean(triggerResponse);
+        if (isTriggering)
+          wantedSubjects.push({
+            subject: result.subject,
+            type: result.type,
+            config: conf,
+          });
+      }
     }
+    return wantedSubjects;
+  } else {
+    return [];
   }
-  return wantedSubjects;
 }
 
 /*
