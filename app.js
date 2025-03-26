@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import { v4 as uuid } from 'uuid';
 import { NAMESPACES as ns } from './env';
 import { BASES as b } from './env';
+import * as hel from './helpers';
 import * as del from './deltaProcessing';
 import * as hea from './healing';
 import * as test from './test/test';
@@ -10,11 +11,18 @@ import * as env from './env';
 import * as pbu from './parse-bindings-utils';
 import * as mas from '@lblod/mu-auth-sudo';
 import * as rst from 'rdf-string-ttl';
+import * as cron from 'node-cron';
 import * as N3 from 'n3';
 const { namedNode, literal } = N3.DataFactory;
 import * as deltaData from './test/DeltaTestData.js';
 import * as vi from './test/VendorInfo.js';
 import { Lock } from 'async-await-mutex-lock';
+
+const processingLock = new Lock();
+const timerLock = new Lock();
+
+let runningTimer = undefined;
+
 ///////////////////////////////////////////////////////////////////////////////
 // At boot
 ///////////////////////////////////////////////////////////////////////////////
@@ -26,6 +34,10 @@ import { Lock } from 'async-await-mutex-lock';
     );
   }
 })();
+
+cron.schedule(env.CLEANUP_CRON, processTemp);
+
+runningTimer = setTimeout(processTemp, 10000);
 
 ///////////////////////////////////////////////////////////////////////////////
 // API
@@ -40,29 +52,40 @@ app.use(
   }),
 );
 
-const lock = new Lock();
-
 app.post('/delta', async function (req, res, next) {
   // We can already send a 200 back. The delta-notifier does not care about the
   // result, as long as the request is closed.
   res.status(200).end();
-
-  await lock.acquire();
-
   try {
-    await randomDelay(
-      env.MIN_DELAY_TO_PROCESS_NEXT_DELTA,
-      env.MAX_DELAY_TO_PROCESS_NEXT_DELTA,
-    );
     const changesets = req.body;
-    const result = await del.processDelta(changesets);
-    handleProcessingResult(result);
+    const subjects = hel.getAllUniqueSubjects(changesets);
+    await hel.insertSubjectsForLaterProcessing(subjects);
+    timerLock.acquire();
+    if (!runningTimer)
+      runningTimer = setTimeout(processTemp, env.PROCESSING_INTERVAL);
   } catch (err) {
     next(err);
   } finally {
-    lock.release();
+    timerLock.release();
   }
 });
+
+async function processTemp() {
+  processingLock.acquire();
+  runningTimer = undefined;
+  try {
+    const result = await del.processTemp();
+    handleProcessingResult(result);
+    timerLock.acquire();
+    if (result?.count)
+      runningTimer = setTimeout(processTemp, env.PROCESSING_INTERVAL);
+  } catch (err) {
+    await logError(err);
+  } finally {
+    timerLock.release();
+    processingLock.release();
+  }
+}
 
 /*
  * This endpoint is used for healing. This will query the database for ALL
@@ -135,17 +158,21 @@ app.get('/test', async function (req, res, next) {
 // when removed, Express does not use this middleware anymore.
 /* eslint-disable no-unused-vars */
 app.use(async (err, req, res, next) => {
-  if (env.LOGLEVEL === 'error') console.error(err);
-  if (env.WRITE_ERRORS === true) {
-    const errorStore = errorToStore(err);
-    await writeError(errorStore);
-  }
+  await logError(err);
 });
 /* eslint-enable no-unused-vars */
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helpers
 ///////////////////////////////////////////////////////////////////////////////
+
+async function logError(err) {
+  if (env.LOGLEVEL === 'error') console.error(err);
+  if (env.WRITE_ERRORS === true) {
+    const errorStore = errorToStore(err);
+    await writeError(errorStore);
+  }
+}
 
 /*
  * Produces an RDF store with the data to encode an error in the OSLC

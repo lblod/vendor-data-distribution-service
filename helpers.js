@@ -4,7 +4,8 @@ import * as mas from '@lblod/mu-auth-sudo';
 import * as env from './env';
 import * as N3 from 'n3';
 import * as conf from './config/subjectsAndPaths';
-const { namedNode } = N3.DataFactory;
+import { v4 as uuidv4 } from 'uuid';
+const { namedNode, literal } = N3.DataFactory;
 const sparqlJsonParser = new sjp.SparqlJsonParser();
 const sparqlConnectionHeaders = {
   'mu-call-scope-id': env.MU_SCOPE,
@@ -33,6 +34,71 @@ export function getAllUniqueSubjects(changesets) {
     });
   const subjectStrings = [...new Set(allSubjects)];
   return subjectStrings.map(namedNode);
+}
+
+export async function insertSubjectsForLaterProcessing(
+  subjects,
+  conHeaders = sparqlConnectionHeaders,
+  conOptions = sparqlConnectionOptions,
+) {
+  const subjectsAndUuidTriples = subjects.map((subject) => {
+    const uuid = uuidv4();
+    return `${rst.termToString(subject)} schema:identifier ${rst.termToString(literal(uuid))} .`;
+  });
+  const graph = namedNode(env.TEMP_GRAPH);
+  return mas.updateSudo(
+    `
+    PREFIX schema: <http://schema.org/>
+
+    INSERT DATA {
+      GRAPH ${rst.termToString(graph)} {
+        ${subjectsAndUuidTriples.join('\n')}
+      }
+    }
+  `,
+    conHeaders,
+    conOptions,
+  );
+}
+
+export async function getSubjectsForLaterProcessing() {
+  const graph = namedNode(env.TEMP_GRAPH);
+  const response = await mas.querySudo(`
+    CONSTRUCT {
+      ?s ?p ?o
+    }
+    WHERE {
+      GRAPH ${rst.termToString(graph)} {
+        ?s ?p ?o .
+      }
+    }
+    LIMIT ${env.PROCESSING_INTERVAL_SIZE}
+  `);
+  const parsedResults = sparqlJsonParser.parseJsonResults(response);
+  const store = new N3.Store();
+  parsedResults.forEach((parsedResult) => {
+    store.addQuad(parsedResult.s, parsedResult.p, parsedResult.o, graph);
+  });
+  return store;
+}
+
+export async function removeSubjectsForLaterProcessing(store) {
+  if (store.size > 0) {
+    const triples = [];
+    store.forEach((quad) => {
+      triples.push(
+        `${rst.termToString(quad.subject)} ${rst.termToString(quad.predicate)} ${rst.termToString(quad.object)} .`,
+      );
+    });
+    const graph = namedNode(env.TEMP_GRAPH);
+    await mas.updateSudo(`
+      DELETE DATA {
+        GRAPH ${rst.termToString(graph)} {
+          ${triples.join('\n')}
+        }
+      }
+    `);
+  }
 }
 
 /*
