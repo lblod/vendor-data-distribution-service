@@ -13,6 +13,37 @@ files, ... about the publication. You can forward data about specific subjects
 with this service into a graph that is only readable for that vendor through
 `mu-authorization`.
 
+Internally, this service uses a temporary graph to immediately write any
+incoming subjects and a unique identifier for that subject. If any subject is
+repeated over multiple delta messages, a new identifier is used every time.
+This combination of subject and unique identifier "encodes" the fact that a
+delta message for that subject has arrived. Later, based on a CRON job or a
+timer that is set after a delta message, a batch of subjects is processed
+simultaneously after querying for subjects and their identifiers. Subjects can
+thus appear in that batch with different identifiers, but are processed once
+for that batch. After processing the used combinations of subjects and
+identifiers are removed from the temporary graph.
+
+The reason for using unique identifiers is to allow for better and more correct
+concurrency. Ingesting delta messages, and therefore writing subjects to the
+temporary graph, can happen concurrently to processing batches of subjects. If
+new deltas arrive for a subject that is currently already being processed, the
+combination of subject and identifier in the temporary graph make sure that it
+will be processed again in a later batch. Batching subjects for processing
+means that subjects are processed in much less iterations, and meanwhile,
+ordering the batching queries by subject means that subjects are processed in
+the least amount of batches (in stark contrast to earlier behaviour of this
+service where every subject might have been processed numerous times, because
+it would have been processed during every delta message).
+
+On top of all this, batch processing happens, by default (configurable), every
+couple of minutes. This allows for all the delta messages of a subject to
+arrive before attempting to process that subject. This prevents the situation
+that not enough data is available at the time to correctly dispatch the
+subject. There is also a CRON job that runs every hour (also configurable) to
+clean up any leftover subjects in the temporary graph. This job also runs on
+startup of the service.
+
 ## Adding to a stack
 
 Add the vendor-data-distribution-service to a mu-semtech stack by inserting the
