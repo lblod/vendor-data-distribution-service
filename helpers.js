@@ -72,6 +72,7 @@ export async function getSubjectsForLaterProcessing() {
         ?s ?p ?o .
       }
     }
+    ORDER BY ?s
     LIMIT ${env.PROCESSING_INTERVAL_SIZE}
   `);
   const parsedResults = sparqlJsonParser.parseJsonResults(response);
