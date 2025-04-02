@@ -13,6 +13,37 @@ files, ... about the publication. You can forward data about specific subjects
 with this service into a graph that is only readable for that vendor through
 `mu-authorization`.
 
+Internally, this service uses a temporary graph to immediately write any
+incoming subjects and a unique identifier for that subject. If any subject is
+repeated over multiple delta messages, a new identifier is used every time.
+This combination of subject and unique identifier "encodes" the fact that a
+delta message for that subject has arrived. Later, based on a CRON job or a
+timer that is set after a delta message, a batch of subjects is processed
+simultaneously after querying for subjects and their identifiers. Subjects can
+thus appear in that batch with different identifiers, but are processed once
+for that batch. After processing, the used combinations of subjects and
+identifiers are removed from the temporary graph.
+
+The reason for using unique identifiers is to allow for better and more correct
+concurrency. Ingesting delta messages, and therefore writing subjects to the
+temporary graph, can happen concurrently to processing batches of subjects. If
+new deltas arrive for a subject that is currently already being processed, the
+combination of subject and identifier in the temporary graph make sure that it
+will be processed again in a later batch. Batching subjects for processing
+means that subjects are processed in much less iterations, and meanwhile,
+ordering the batching queries by subject means that subjects are processed in
+the least amount of batches (in stark contrast to earlier behaviour of this
+service where every subject might have been processed numerous times, because
+it would have been processed during every delta message).
+
+On top of all this, batch processing happens, by default (configurable), every
+couple of minutes. This allows for all the delta messages of a subject to
+arrive before attempting to process that subject. This prevents the situation
+that not enough data is available at the time to correctly dispatch the
+subject. There is also a CRON job that runs every hour (also configurable) to
+clean up any leftover subjects in the temporary graph. This job also runs on
+startup of the service.
+
 ## Adding to a stack
 
 Add the vendor-data-distribution-service to a mu-semtech stack by inserting the
@@ -201,6 +232,8 @@ JavaScript objects that have the following properties:
   `where` subproperty also needs to exist to make this configuration valid. Use
   this step to translate predicates, add extra calculated predicates, ...
 
+### Environment variables
+
 The following are environment variables that can be used to configure this
 service. Supply a value for them using the `environment` keyword in the
 `docker-compose.yml` file for this service.
@@ -228,6 +261,25 @@ service. Supply a value for them using the `environment` keyword in the
   `mu-authorization` using some of the above environment variables, this scope
   id has no effect. It only affects queries through `mu-authorization` and the
   `delta-notifier`.
+* `TEMP_GRAPH`: <em>(optional, default:
+  "http://mu.semte.ch/graphs/vendor-data-distribution/temp")</em> graph for
+  storing the temporary subject and identifier combinations for later batch
+  processing.
+* `PROCESSING_INTERVAL`: <em>(optional, default: 300000)</em> time in ms to
+  wait after a delta message has arrived before starting the batch processing.
+  Delta messages will only create a timer for this interval if no other timer
+  is running. Set this timer interval low for fast processing, but the same
+  subjects might be processed multiple times. Larger intervals allow more time
+  for the delta messages to have settled and reduce the amount of reprocessing
+  the same subjects.
+* `PROCESSING_INTERVAL_SIZE`: <em>(optional, default: 100)</em> amount of
+  subject-identifier combinations that will be batch processed at a time. Keep
+  this relatively low (below 500), because otherwise delete queries become too
+  large and fail.
+* `CLEANUP_CRON`: <em>(optional, default: "30 * * * *")</em> periodic cleanup
+  job timer. This performs a batch processing of subjects from the temporary
+  graph. Can be kept to a minimum, because there should normally be no
+  leftovers except in the event of catastrophic failure.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
   "info", "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
@@ -237,8 +289,13 @@ service. Supply a value for them using the `environment` keyword in the
 * `ERROR_BASE`: <em>(optional, URI, default:
   "http://data.lblod.info/errors/")</em> base for the URI of created errors.
 
-* `MIN_DELAY_TO_PROCESS_NEXT_DELTA`: (to avoid potential race conditions) Minimum delay in ms before processing next delta. Default is 1000 ms.
-* `MAX_DELAY_TO_PROCESS_NEXT_DELTA`: Maximum delay in ms before processing next delta. Default is 2000 ms.
+## Manually start batch processing
+
+You can manually start the batch processing by calling the following endpoint. This should normally not be necessary, because this is done during the cleanup CRON job, and even that cleanup job should be redundant.
+
+### POST `/process-temp`
+
+**Returns** `200` immediately, after which the processing will start.
 
 ## Healing
 

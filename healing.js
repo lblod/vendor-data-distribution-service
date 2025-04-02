@@ -57,7 +57,9 @@ export async function heal(skipDeletes, onlyTypes) {
     // For each subject that is elegible for the vendor graph, move its data to it
     for (let i = 0; i < parsedResults.length; i++) {
       const entry = parsedResults[i];
-      const vendorGraph = `http://mu.semte.ch/graphs/vendors/${entry.vendorId.value}/${entry.organisationId.value}`;
+      const vendorGraph = namedNode(
+        `http://mu.semte.ch/graphs/vendors/${entry.vendorId.value}/${entry.organisationId.value}`,
+      );
       if (!skipDeletes)
         await hel.removeDataFromVendorGraph(
           entry.subject,

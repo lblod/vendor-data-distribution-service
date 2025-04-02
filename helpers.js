@@ -4,7 +4,8 @@ import * as mas from '@lblod/mu-auth-sudo';
 import * as env from './env';
 import * as N3 from 'n3';
 import * as conf from './config/subjectsAndPaths';
-const { namedNode } = N3.DataFactory;
+import { v4 as uuidv4 } from 'uuid';
+const { namedNode, literal } = N3.DataFactory;
 const sparqlJsonParser = new sjp.SparqlJsonParser();
 const sparqlConnectionHeaders = {
   'mu-call-scope-id': env.MU_SCOPE,
@@ -16,6 +17,8 @@ const sparqlConnectionOptions = {
 
 /*
  * Gather distinct subjects from all the changes in the changesets.
+ *
+ * TODO: check if we need to also include the subjects from DELETES
  *
  * @function
  * @param {Array(Object)} changesets - This array contains JavaScript objects
@@ -36,9 +39,120 @@ export function getAllUniqueSubjects(changesets) {
 }
 
 /*
+ * Insert in a temp graph the given subjects with a unique identifier. These
+ * unique triples will be used to process the subjects. New deltas give new
+ * unique identifiers for a subjects and so these subjects will correctly be
+ * processed again later.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {Array(NamedNode)} subjects - An array of the subjects that need to
+ * be inserted in the temp graph for later processing.
+ * @returns {undefined} Nothing
+ */
+export async function insertSubjectsForLaterProcessing(
+  subjects,
+  conHeaders = sparqlConnectionHeaders,
+  conOptions = sparqlConnectionOptions,
+) {
+  const subjectsAndUuidTriples = subjects.map((subject) => {
+    const uuid = uuidv4();
+    return `${rst.termToString(subject)} schema:identifier ${rst.termToString(literal(uuid))} .`;
+  });
+  const graph = namedNode(env.TEMP_GRAPH);
+  return mas.updateSudo(
+    `
+    PREFIX schema: <http://schema.org/>
+
+    INSERT DATA {
+      GRAPH ${rst.termToString(graph)} {
+        ${subjectsAndUuidTriples.join('\n')}
+      }
+    }
+  `,
+    conHeaders,
+    conOptions,
+  );
+}
+
+/*
+ * Get a collection of subjects and their unique processing identifier from the
+ * temp graph. Subjects are grouped as much as possible to minimize the amount
+ * of times a subject will be processed over time.
+ *
+ * @public
+ * @async
+ * @function
+ * @returns {N3.Store} A store containing the subjects and their unique
+ * processing identifier.
+ */
+export async function getSubjectsForLaterProcessing() {
+  const graph = namedNode(env.TEMP_GRAPH);
+  const response = await mas.querySudo(`
+    CONSTRUCT {
+      ?s ?p ?o
+    }
+    WHERE {
+      GRAPH ${rst.termToString(graph)} {
+        ?s ?p ?o .
+      }
+    }
+    ORDER BY ?s
+    LIMIT ${env.PROCESSING_INTERVAL_SIZE}
+  `);
+  const parsedResults = sparqlJsonParser.parseJsonResults(response);
+  const store = new N3.Store();
+  parsedResults.forEach((parsedResult) => {
+    store.addQuad(parsedResult.s, parsedResult.p, parsedResult.o, graph);
+  });
+  return store;
+}
+
+/*
+ * Removes from the temp graph the given subjects with their unique identifier.
+ * Not just all the triples for that subject, but only the identifiers that
+ * have been processed.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {N3.Store} store - Store with the subjects and identifiers, just like
+ * the response from `getSubjectsForLaterProcessing`.
+ * @returns {undefined} Nothing
+ */
+export async function removeSubjectsForLaterProcessing(
+  store,
+  conHeaders = sparqlConnectionHeaders,
+  conOptions = sparqlConnectionOptions,
+) {
+  if (store.size > 0) {
+    const triples = [];
+    store.forEach((quad) => {
+      triples.push(
+        `${rst.termToString(quad.subject)} ${rst.termToString(quad.predicate)} ${rst.termToString(quad.object)} .`,
+      );
+    });
+    const graph = namedNode(env.TEMP_GRAPH);
+    await mas.updateSudo(
+      `
+      DELETE DATA {
+        GRAPH ${rst.termToString(graph)} {
+          ${triples.join('\n')}
+        }
+      }
+    `,
+      conHeaders,
+      conOptions,
+    );
+  }
+}
+
+/*
  * Fetch types (rdf:type) for the subjects and filter them by the
  * configuration.
  *
+ * @public
  * @async
  * @function
  * @param {Array(NamedNode)} subjects - An array with subjects.
@@ -53,43 +167,48 @@ export function getAllUniqueSubjects(changesets) {
  *    called. So: be cautious when shuffling this function around
  */
 export async function getAllWantedSubjects(subjects) {
-  const response = await mas.querySudo(`
-    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+  if (subjects.length > 0) {
+    const response = await mas.querySudo(`
+      PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-    SELECT DISTINCT ?subject ?type WHERE {
-      VALUES ?subject {
-        ${subjects.map(rst.termToString).join(' ')}
+      SELECT DISTINCT ?subject ?type WHERE {
+        VALUES ?subject {
+          ${subjects.map(rst.termToString).join(' ')}
+        }
+        ?subject rdf:type ?type .
       }
-      ?subject rdf:type ?type .
-    }
-  `);
-  const parsedResults = sparqlJsonParser.parseJsonResults(response);
-  const wantedSubjects = [];
+    `);
+    const parsedResults = sparqlJsonParser.parseJsonResults(response);
+    const wantedSubjects = [];
 
-  for (const result of parsedResults) {
-    const confs = conf.subjects.filter((s) => s.type === result.type.value);
-    for (const conf of confs) {
-      const triggerResponse = await mas.querySudo(`
-        ASK {
-          VALUES ?subject { ${rst.termToString(result.subject)} }
-          ${conf.trigger}
-        }`);
-      const isTriggering = sparqlJsonParser.parseJsonBoolean(triggerResponse);
-      if (isTriggering)
-        wantedSubjects.push({
-          subject: result.subject,
-          type: result.type,
-          config: conf,
-        });
+    for (const result of parsedResults) {
+      const confs = conf.subjects.filter((s) => s.type === result.type.value);
+      for (const conf of confs) {
+        const triggerResponse = await mas.querySudo(`
+          ASK {
+            VALUES ?subject { ${rst.termToString(result.subject)} }
+            ${conf.trigger}
+          }`);
+        const isTriggering = sparqlJsonParser.parseJsonBoolean(triggerResponse);
+        if (isTriggering)
+          wantedSubjects.push({
+            subject: result.subject,
+            type: result.type,
+            config: conf,
+          });
+      }
     }
+    return wantedSubjects;
+  } else {
+    return [];
   }
-  return wantedSubjects;
 }
 
 /*
  * Get an object with information about the vendor that published a set of
  * data. Starting from the subject and its type (rdf:type).
  *
+ * @public
  * @async
  * @function
  * @param {NamedNode} subject - Represents the URI of the subject that is being
@@ -130,6 +249,20 @@ export async function getVendorInfoFromSubject(subject, type, config) {
   }
 }
 
+/*
+ * Perform the removal of data from the vendor graph, based on the config for
+ * that type of subject. This selects data from anywhere to delete from the
+ * vendor graph in order not to miss anything.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} subject - Subject for which data is to be removed.
+ * @param {Object} config - Configuration object for that subject. Should
+ * contain the `remove` property to be able to construct a DELETE query.
+ * @param {NamedNode} graph - Vendor graph to remove the data from.
+ * @returns {undefined} Nothing
+ */
 export async function removeDataFromVendorGraph(
   subject,
   config,
@@ -142,7 +275,7 @@ export async function removeDataFromVendorGraph(
   await mas.updateSudo(
     `
     DELETE {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.remove.delete}
       }
     }
@@ -155,6 +288,19 @@ export async function removeDataFromVendorGraph(
   );
 }
 
+/*
+ * Copy data from organisation graphs to the given vendor graph for the given
+ * subject.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} subject - Subject for which data is to be copied.
+ * @param {Object} config - Configuration object for that subject. Should
+ * contain the `copy` property to be able to construct an INSERT query.
+ * @param {NamedNode} graph - Vendor graph to copy data to.
+ * @returns {undefined} Nothing
+ */
 export async function copyDataToVendorGraph(
   subject,
   config,
@@ -165,7 +311,7 @@ export async function copyDataToVendorGraph(
   await mas.updateSudo(
     `
     INSERT {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.copy.insert}
       }
     }
@@ -181,6 +327,22 @@ export async function copyDataToVendorGraph(
   );
 }
 
+/*
+ * Perform post processing on the subject in the vendor graph. A configuration
+ * might contain a query that is to be executed on the subject to translate
+ * properties, to add extra derived triples, ... Both INSERT and DELETE
+ * patterns are combined into a single query.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} subject - Subject to perform post processing on.
+ * @param {Object} config - Configuration object for that subject. Should
+ * contain the `post` property to be able to construct DELETE and INSERT
+ * queries.
+ * @param {NamedNode} graph - Vendor graph in which to perform the processing.
+ * @returns {undefined} Nothing
+ */
 export async function postProcess(
   subject,
   config,
@@ -196,7 +358,7 @@ export async function postProcess(
   const deletePattern = config?.post?.delete
     ? `
     DELETE {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.post.delete}
       }
     }`
@@ -204,7 +366,7 @@ export async function postProcess(
   const insertPattern = config?.post?.insert
     ? `
     INSERT {
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.post.insert}
       }
     }`
@@ -216,7 +378,7 @@ export async function postProcess(
     ${insertPattern}
     WHERE {
       VALUES ?subject { ${rst.termToString(subject)} }
-      GRAPH <${graph}> {
+      GRAPH ${rst.termToString(graph)} {
         ${config.post.where}
       }
     }

@@ -12,6 +12,26 @@ export const SPARQL_ENDPOINT_HEALING_OPERATIONS = envvar
   .default('http://virtuoso:8890/sparql')
   .asUrlString();
 
+export const TEMP_GRAPH = envvar
+  .get('TEMP_GRAPH')
+  .default('http://mu.semte.ch/graphs/vendor-data-distribution/temp')
+  .asUrlString();
+
+export const PROCESSING_INTERVAL = envvar
+  .get('PROCESSING_INTERVAL')
+  .default(300000) //30000 is 5 minutes
+  .asIntPositive();
+
+export const PROCESSING_INTERVAL_SIZE = envvar
+  .get('PROCESSING_INTERVAL_SIZE')
+  .default(100)
+  .asIntPositive();
+
+export const CLEANUP_CRON = envvar
+  .get('CLEANUP_CRON')
+  .default('30 * * * *')
+  .asString();
+
 export const CREATOR =
   'http://lblod.data.gift/services/vendor-data-distribution-service';
 
@@ -36,16 +56,6 @@ export const ERROR_BASE = envvar
   .get('ERR0R_BASE')
   .default('http://data.lblod.info/errors/')
   .asUrlString();
-
-export const MIN_DELAY_TO_PROCESS_NEXT_DELTA = envvar
-  .get('MIN_DELAY_TO_PROCESS_NEXT_DELTA')
-  .default('1000')
-  .asIntPositive();
-
-export const MAX_DELAY_TO_PROCESS_NEXT_DELTA = envvar
-  .get('MAX_DELAY_TO_PROCESS_NEXT_DELTA')
-  .default('2000')
-  .asIntPositive();
 
 export const MU_SCOPE = envvar
   .get('MU_SCOPE')
