@@ -21,7 +21,7 @@ delta message for that subject has arrived. Later, based on a CRON job or a
 timer that is set after a delta message, a batch of subjects is processed
 simultaneously after querying for subjects and their identifiers. Subjects can
 thus appear in that batch with different identifiers, but are processed once
-for that batch. After processing the used combinations of subjects and
+for that batch. After processing, the used combinations of subjects and
 identifiers are removed from the temporary graph.
 
 The reason for using unique identifiers is to allow for better and more correct

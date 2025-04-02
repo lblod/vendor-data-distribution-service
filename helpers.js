@@ -41,7 +41,7 @@ export function getAllUniqueSubjects(changesets) {
 /*
  * Insert in a temp graph the given subjects with a unique identifier. These
  * unique triples will be used to process the subjects. New deltas give new
- * unique identifiers for a subjects and so that subjects will correctly be
+ * unique identifiers for a subjects and so these subjects will correctly be
  * processed again later.
  *
  * @public
@@ -79,7 +79,7 @@ export async function insertSubjectsForLaterProcessing(
 /*
  * Get a collection of subjects and their unique processing identifier from the
  * temp graph. Subjects are grouped as much as possible to minimize the amount
- * of times a subjects will be processed over time.
+ * of times a subject will be processed over time.
  *
  * @public
  * @async

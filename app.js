@@ -18,7 +18,7 @@ import * as deltaData from './test/DeltaTestData.js';
 import * as vi from './test/VendorInfo.js';
 import { Lock } from 'async-await-mutex-lock';
 
-// For locking the batch processing. We don't want more than one batch proces
+// For locking the batch processing. We don't want more than one batch process
 // at a time.
 const processingLock = new Lock();
 // For locking all operations on timers. Concurrent endpoints might otherwise
@@ -92,7 +92,7 @@ app.post('/process-temp', async function (req, res, next) {
 
 /*
  * Process batches from the temporary graph, print results and restart a timer
- * for a new processing round if there where any subjects in the batch.
+ * for a new processing round if there were any subjects in the batch.
  */
 async function processTemp() {
   processingLock.acquire();
