@@ -1,6 +1,6 @@
 {
   "name": "vendor-data-distribution-service",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Service to distribute data for the SPARQL endpoint to vendors in their own organisation graph.",
   "dependencies": {
     "@lblod/mu-auth-sudo": "^0.6.0",
