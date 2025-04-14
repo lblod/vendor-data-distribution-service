@@ -194,7 +194,14 @@ async function logError(err) {
   if (env.LOGLEVEL === 'error') console.error(err);
   if (env.WRITE_ERRORS === true) {
     const errorStore = errorToStore(err);
-    await writeError(errorStore);
+    try {
+      await writeError(errorStore);
+    } catch (err) {
+      console.error(
+        'ERROR-CEPTION: Error could not be written to the triplestore: ',
+        err,
+      );
+    }
   }
 }
 
