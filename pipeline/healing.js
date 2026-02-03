@@ -1,7 +1,7 @@
-import * as env from './env';
-import * as hel from './helpers';
+import * as env from '../env';
+import * as hel from '../util/helpers';
 import * as mas from '@lblod/mu-auth-sudo';
-import * as conf from './config/subjectsAndPaths';
+import * as conf from '../config/subjectsAndPaths';
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
 const sparqlJsonParser = new sjp.SparqlJsonParser();

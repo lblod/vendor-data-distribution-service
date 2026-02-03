@@ -1,5 +1,5 @@
 import * as rst from 'rdf-string-ttl';
-import * as hel from './helpers';
+import * as hel from '../util/helpers';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 

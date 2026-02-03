@@ -1,9 +1,9 @@
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
 import * as mas from '@lblod/mu-auth-sudo';
-import * as env from './env';
+import * as env from '../env';
 import * as N3 from 'n3';
-import * as conf from './config/subjectsAndPaths';
+import * as conf from '../config/subjectsAndPaths';
 import { v4 as uuidv4 } from 'uuid';
 const { namedNode, literal } = N3.DataFactory;
 const sparqlJsonParser = new sjp.SparqlJsonParser();
