@@ -91,15 +91,22 @@ export async function getSubjectsForLaterProcessing() {
   const graph = namedNode(env.TEMP_GRAPH);
   const response = await mas.querySudo(`
     CONSTRUCT {
-      ?s ?p ?o
+      ?s ?p ?o .
     }
     WHERE {
+      {
+        SELECT DISTINCT ?s {
+          GRAPH ${rst.termToString(graph)} {
+            ?s ?p ?o .
+          }
+        }
+        ORDER BY ?s
+        LIMIT ${env.PROCESSING_INTERVAL_SIZE}
+      }
       GRAPH ${rst.termToString(graph)} {
         ?s ?p ?o .
       }
     }
-    ORDER BY ?s
-    LIMIT ${env.PROCESSING_INTERVAL_SIZE}
   `);
   const parsedResults = sparqlJsonParser.parseJsonResults(response);
   const store = new N3.Store();
