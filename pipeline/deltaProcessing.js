@@ -15,11 +15,11 @@ export async function processTemp() {
 }
 
 //UNUSED
-export async function processDelta(changesets) {
-  // Filter all subjects (just all subjects, filter later which ones needed)
-  const allSubjects = hel.getAllUniqueSubjects(changesets);
-  return processSubjects(allSubjects);
-}
+// export async function processDelta(changesets) {
+//   // Filter all subjects (just all subjects, filter later which ones needed)
+//   const allSubjects = hel.getAllUniqueSubjects(changesets);
+//   return processSubjects(allSubjects);
+// }
 
 /*
  * Takes delta messages, filters subjects, fetches already known data for those
