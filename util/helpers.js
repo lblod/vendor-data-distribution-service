@@ -3,6 +3,7 @@ import * as sjp from 'sparqljson-parse';
 import * as mas from '@lblod/mu-auth-sudo';
 import * as env from '../env';
 import * as N3 from 'n3';
+// TODO: deprecate:
 import * as conf from '../config/subjectsAndPaths';
 import { v4 as uuidv4 } from 'uuid';
 const { namedNode, literal } = N3.DataFactory;
@@ -156,8 +157,9 @@ export async function removeSubjectsForLaterProcessing(
 }
 
 /*
- * Fetch types (rdf:type) for the subjects and filter them by the
- * configuration.
+ * Fetch types (rdf:type) for the subjects from the triplestore, and filter
+ * them by configuration. Then execute the trigger pattern from the config and
+ * build a list of only the subjects that pass the trigger.
  *
  * @public
  * @async
@@ -172,6 +174,8 @@ export async function removeSubjectsForLaterProcessing(
  *  - The current implementation works for deletes too, but that's
  *    mainly because the vendor-graph is not flushed when this function is
  *    called. So: be cautious when shuffling this function around
+ *
+ * TODO: deprecate
  */
 export async function getAllWantedSubjects(subjects) {
   if (subjects.length > 0) {
@@ -225,6 +229,8 @@ export async function getAllWantedSubjects(subjects) {
  * containing a new object with keys `id` and `uri` containing the mu:uuid and
  * the URI respectively. Returns undefined when no config for this subject is
  * found.
+ *
+ * TODO: deprecate
  */
 export async function getVendorInfoFromSubject(subject, type, config) {
   if (config.path) {
@@ -269,6 +275,8 @@ export async function getVendorInfoFromSubject(subject, type, config) {
  * contain the `remove` property to be able to construct a DELETE query.
  * @param {NamedNode} graph - Vendor graph to remove the data from.
  * @returns {undefined} Nothing
+ *
+ * TODO: deprecate
  */
 export async function removeDataFromVendorGraph(
   subject,
@@ -307,6 +315,8 @@ export async function removeDataFromVendorGraph(
  * contain the `copy` property to be able to construct an INSERT query.
  * @param {NamedNode} graph - Vendor graph to copy data to.
  * @returns {undefined} Nothing
+ *
+ * TODO: deprecate
  */
 export async function copyDataToVendorGraph(
   subject,
@@ -349,6 +359,8 @@ export async function copyDataToVendorGraph(
  * queries.
  * @param {NamedNode} graph - Vendor graph in which to perform the processing.
  * @returns {undefined} Nothing
+ *
+ * TODO: deprecate
  */
 export async function postProcess(
   subject,

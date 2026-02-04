@@ -145,6 +145,8 @@ app.post('/healing', async function (req, res, next) {
  * of the mu-javascript template), we have to test this service with an
  * internal test route.
  * This route is protected to only be accessible during development mode.
+ *
+ * TODO: update to newer methods, and then update to more improvements later on.
  */
 app.use('/test', async function (req, res, next) {
   if (/development/.test(env.RUN_MODE)) next();
