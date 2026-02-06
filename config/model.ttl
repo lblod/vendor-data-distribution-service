@@ -13,8 +13,9 @@
 
 <http://rdf.myexperiment.org/ontologies/base/Submission>
   rdf:type vdds:Class ;
-  vdds:trigger vdds:typeTrigger ;
-  vdds:property vdds:allProperties ;
+  vdds:trigger vdds:noTrigger ; #optional
+  vdds:property vdds:allProperties ; #optional
+  vdds:optionalProperty rdf:type ; #optional
   vdds:targetGraphQuery """
     PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
     PREFIX muAccount: <http://mu.semte.ch/vocabularies/account/>
@@ -37,7 +38,7 @@
   vdds:targetGraphTemplate "http://mu.semte.ch/graphs/vendors/${vendorUuid}/${organisationUuid}" .
 
 <http://lblod.data.gift/vocabularies/automatische-melding/FormData>
-  rdf:type vdds:Class ;
+  rdf:type vdds:Subclass ;
   vdds:trigger """
     ASK {
       ${subject} a <http://lblod.data.gift/vocabularies/automatische-melding/FormData> .
@@ -47,28 +48,6 @@
       }
   """ ;
   vdds:property vdds:allProperties ;
-  vdds:targetGraphQuery """
-    PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
-    PREFIX muAccount: <http://mu.semte.ch/vocabularies/account/>
-
-    SELECT ?organisation ?organisationUuid ?vendor ?vendorUuid
-      GRAPH ?g {
-        ?submission
-          a <http://rdf.myexperiment.org/ontologies/base/Submission> ;
-          <http://www.w3.org/ns/prov#generated> ${subject} .
-      }
-      FILTER (REGEX(STR(?g), "^http://mu.semte.ch/graphs/organizations/"))
-      BIND(STRAFTER(STR(?g), "http://mu.semte.ch/graphs/organizations/") AS ?afterPrefix)
-      BIND(STRBEFORE(?afterPrefix, "/LoketLB-databankEredienstenGebruiker") AS ?uuid)
-      ?organisation <http://mu.semte.ch/vocabularies/core/uuid> ?uuid .
-      ?vendor
-        muAccount:canActOnBehalfOf ?organisation ;
-        mu:uuid ?vendorUuid .
-      ?organisation
-        mu:uuid ?organisationUuid .
-    }
-  """ ;
-  vdds:targetGraphTemplate "http://mu.semte.ch/graphs/vendors/${vendorUuid}/${organisationUuid}" ;
   vdds:postProcessQuery """
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     PREFIX formdata: <http://lblod.data.gift/vocabularies/besluit/submission/form-data/>
