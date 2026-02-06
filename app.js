@@ -4,6 +4,7 @@ import { v4 as uuid } from 'uuid';
 import { NAMESPACES as ns } from './env';
 import { BASES as b } from './env';
 import * as hel from './util/helpers';
+import * as dm from './util/data-manager';
 import * as del from './pipeline/deltaProcessing';
 import * as hea from './pipeline/healing';
 import * as test from './test/test';
@@ -17,6 +18,7 @@ const { namedNode, literal } = N3.DataFactory;
 import * as deltaData from './test/DeltaTestData.js';
 import * as vi from './test/VendorInfo.js';
 import { Lock } from 'async-await-mutex-lock';
+import * as cm from './util/config-manager';
 
 // For locking the batch processing. We don't want more than one batch process
 // at a time.
@@ -62,8 +64,8 @@ app.post('/delta', async function (req, res, next) {
   res.status(200).end();
   try {
     const changesets = req.body;
-    const subjects = hel.getAllUniqueSubjects(changesets);
-    await hel.insertSubjectsForLaterProcessing(subjects);
+    const subjects = dm.getAllUniqueSubjects(changesets);
+    await dm.insertSubjectsForLaterProcessing(subjects);
     timerLock.acquire();
     if (!runningTimer)
       runningTimer = setTimeout(processTemp, env.PROCESSING_INTERVAL);
@@ -98,7 +100,7 @@ async function processTemp() {
   processingLock.acquire();
   runningTimer = undefined;
   try {
-    const result = await del.processTemp();
+    const result = await del.processBatch();
     handleProcessingResult(result);
     timerLock.acquire();
     if (result?.count)

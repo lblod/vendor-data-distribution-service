@@ -1,5 +1,6 @@
 import * as env from '../env';
 import * as hel from '../util/helpers';
+import * as dm from '../util/data-manager';
 import * as mas from '@lblod/mu-auth-sudo';
 import * as conf from '../config/subjectsAndPaths';
 import * as rst from 'rdf-string-ttl';
@@ -61,21 +62,21 @@ export async function heal(skipDeletes, onlyTypes) {
         `http://mu.semte.ch/graphs/vendors/${entry.vendorId.value}/${entry.organisationId.value}`,
       );
       if (!skipDeletes)
-        await hel.removeDataFromVendorGraph(
+        await dm.removeDataFromVendorGraph(
           entry.subject,
           config,
           vendorGraph,
           sparqlConnectionHeaders,
           sparqlConnectionOptions,
         );
-      await hel.copyDataToVendorGraph(
+      await dm.copyDataToVendorGraph(
         entry.subject,
         config,
         vendorGraph,
         sparqlConnectionHeaders,
         sparqlConnectionOptions,
       );
-      await hel.postProcess(
+      await dm.postProcess(
         entry.subject,
         config,
         vendorGraph,

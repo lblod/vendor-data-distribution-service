@@ -27,6 +27,8 @@ export const PROCESSING_INTERVAL_SIZE = envvar
   .default(100)
   .asIntPositive();
 
+export const BATCH_SIZE = envvar.get('BATCH_SIZE').default('100').asInt();
+
 export const CLEANUP_CRON = envvar
   .get('CLEANUP_CRON')
   .default('30 * * * *')
@@ -74,6 +76,7 @@ const PREFIXES = {
   session: 'http://mu.semte.ch/vocabularies/session/',
   oslc: 'http://open-services.net/ns/core#',
   dct: 'http://purl.org/dc/terms/',
+  vdds: 'https://github.com/lblod/vendor-data-distribution-service#',
 };
 
 const BASE = {
