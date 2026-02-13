@@ -3,22 +3,17 @@ import bodyParser from 'body-parser';
 import { v4 as uuid } from 'uuid';
 import { NAMESPACES as ns } from './env';
 import { BASES as b } from './env';
-import * as hel from './util/helpers';
 import * as dm from './util/data-manager';
+import * as hel from './util/helpers';
 import * as del from './pipeline/deltaProcessing';
 import * as hea from './pipeline/healing';
 import * as test from './test/test';
 import * as env from './env';
-import * as pbu from './util/parse-bindings-utils';
-import * as mas from '@lblod/mu-auth-sudo';
-import * as rst from 'rdf-string-ttl';
+import * as sts from './util/storeToTriplestore';
 import * as cron from 'node-cron';
 import * as N3 from 'n3';
 const { namedNode, literal } = N3.DataFactory;
-import * as deltaData from './test/DeltaTestData.js';
-import * as vi from './test/VendorInfo.js';
 import { Lock } from 'async-await-mutex-lock';
-import * as cm from './util/config-manager';
 
 // For locking the batch processing. We don't want more than one batch process
 // at a time.
@@ -33,7 +28,7 @@ let runningTimer = undefined;
 // At boot
 ///////////////////////////////////////////////////////////////////////////////
 
-(function checkConfig() {
+(function checkEnv() {
   if (/virtuoso/.test(env.SPARQL_ENDPOINT_COPY_OPERATIONS)) {
     console.warn(
       'This service is configured to query Virtuoso directly! Make sure this is what you want.',
@@ -41,9 +36,10 @@ let runningTimer = undefined;
   }
 })();
 
-cron.schedule(env.CLEANUP_CRON, processTemp);
+// TODO: enable
+// cron.schedule(env.CLEANUP_CRON, processTemp);
 
-runningTimer = setTimeout(processTemp, 10000);
+// runningTimer = setTimeout(processTemp, 10000);
 
 ///////////////////////////////////////////////////////////////////////////////
 // API
@@ -64,7 +60,7 @@ app.post('/delta', async function (req, res, next) {
   res.status(200).end();
   try {
     const changesets = req.body;
-    const subjects = dm.getAllUniqueSubjects(changesets);
+    const subjects = hel.getAllUniqueSubjects(changesets);
     await dm.insertSubjectsForLaterProcessing(subjects);
     timerLock.acquire();
     if (!runningTimer)
@@ -119,27 +115,29 @@ async function processTemp() {
  * vendor graph. This effectively replaces the need for migrations and
  * provides a way to add data to the vendor graph in case of configuration
  * changes, or if something went wrong in the application.
+ *
+ * TODO: rewrite in the new implementation
  */
-app.post('/healing', async function (req, res, next) {
-  // Send success code back. We will execute the healing later.
-  res.status(200).send({
-    message:
-      'Healing will start immediately. Check the logs of this service to track progress.',
-  });
-  try {
-    const skipDeletes = !!req.body?.skipDeletes || false;
-    const onlyTypes =
-      req.body?.onlyTheseTypes?.constructor?.name === 'Array'
-        ? req.body?.onlyTheseTypes
-        : [];
-    console.log(
-      `Will start healing with skipDeletes ${skipDeletes} and filter [${onlyTypes.join(', ')}]`,
-    );
-    await hea.heal(skipDeletes, onlyTypes);
-  } catch (err) {
-    next(err);
-  }
-});
+// app.post('/healing', async function (req, res, next) {
+//   // Send success code back. We will execute the healing later.
+//   res.status(200).send({
+//     message:
+//       'Healing will start immediately. Check the logs of this service to track progress.',
+//   });
+//   try {
+//     const skipDeletes = !!req.body?.skipDeletes || false;
+//     const onlyTypes =
+//       req.body?.onlyTheseTypes?.constructor?.name === 'Array'
+//         ? req.body?.onlyTheseTypes
+//         : [];
+//     console.log(
+//       `Will start healing with skipDeletes ${skipDeletes} and filter [${onlyTypes.join(', ')}]`,
+//     );
+//     await hea.heal(skipDeletes, onlyTypes);
+//   } catch (err) {
+//     next(err);
+//   }
+// });
 
 /*
  * This is a test route. Because of the lack of support for test frameworks
@@ -147,8 +145,6 @@ app.post('/healing', async function (req, res, next) {
  * of the mu-javascript template), we have to test this service with an
  * internal test route.
  * This route is protected to only be accessible during development mode.
- *
- * TODO: update to newer methods, and then update to more improvements later on.
  */
 app.use('/test', async function (req, res, next) {
   if (/development/.test(env.RUN_MODE)) next();
@@ -159,20 +155,41 @@ app.use('/test', async function (req, res, next) {
         'This route has been disabled, because it is for testing purposes only.',
       );
 });
-app.get('/test', async function (req, res, next) {
+/**
+ * Insert test data in some organisation graph, insert data about a vendor in
+ * another graph, and start a test by sending a delta message to the /delta
+ * route above.
+ */
+app.get('/test/start', async function (req, res, next) {
   try {
-    await test.clearTestData(vi.vendorInfo);
-    for (const changesetGroup of deltaData.changesets) {
-      for (const changeset of changesetGroup) {
-        const deletes = changeset.deletes.map(pbu.parseSparqlJsonBindingQuad);
-        const inserts = changeset.inserts.map(pbu.parseSparqlJsonBindingQuad);
-        await test.updateDataInTestGraph(deletes, inserts);
-      }
-      await del.processDelta(changesetGroup);
-    }
-    const testSuccess = await test.assertCorrectTestDeltas(vi.vendorInfo);
-    if (testSuccess) res.status(201).send({ result: 'Passed' });
-    else res.status(201).send({ result: 'FAILED' });
+    res
+      .status(200)
+      .send({ result: 'Test data will be inserted and tests will start.' });
+    await test.prepareAndStart();
+  } catch (err) {
+    next(err);
+  }
+});
+/**
+ * After waiting on the processing of the above /test/start route, call this
+ * endpoint to verify the data in the database.
+ */
+app.get('/test/assert', async function (req, res, next) {
+  try {
+    const testSuccess = await test.assert();
+    if (testSuccess) res.status(200).send({ result: 'Passed' });
+    else res.status(200).send({ result: 'FAILED' });
+  } catch (err) {
+    next(err);
+  }
+});
+/**
+ * Clean up all the test data after performing the tests.
+ */
+app.get('/test/clean', async function (req, res, next) {
+  try {
+    res.status(200).send({ result: 'Test data will be cleaned up.' });
+    await test.cleanUp();
   } catch (err) {
     next(err);
   }
@@ -199,7 +216,7 @@ async function logError(err) {
   if (env.WRITE_ERRORS === true) {
     const errorStore = errorToStore(err);
     try {
-      await writeError(errorStore);
+      await sts.insertData(errorStore, namedNode(env.ERROR_GRAPH));
     } catch (err) {
       console.error(
         'ERROR-CEPTION: Error could not be written to the triplestore: ',
@@ -240,34 +257,6 @@ function errorToStore(errorObject) {
 }
 
 /*
- * Receives a store with only the triples related to error messages and stores
- * them in the triplestore.
- *
- * @async
- * @function
- * @param {N3.Store} errorStore - Store with only error triples. (All of the
- * contents are stored.)
- * @returns {undefined} Nothing
- */
-async function writeError(errorStore) {
-  const writer = new N3.Writer();
-  errorStore.forEach((q) => writer.addQuad(q));
-  const errorTriples = await new Promise((resolve, reject) => {
-    writer.end((err, res) => {
-      if (err) reject(err);
-      resolve(res);
-    });
-  });
-  await mas.updateSudo(`
-    INSERT DATA {
-      GRAPH ${rst.termToString(namedNode(env.ERROR_GRAPH))} {
-        ${errorTriples}
-      }
-    }
-  `);
-}
-
-/*
  * The pocessing of delta messages should return an object with a potential
  * information message. This function prints the message when the loglevel
  * requests for that.
@@ -281,5 +270,5 @@ async function writeError(errorStore) {
 function handleProcessingResult(result) {
   if (result.success) return;
   if (env.LOGLEVEL == 'error' || env.LOGLEVEL == 'info')
-    console.log(result.reason);
+    if (result.reason) console.log(result.reason);
 }

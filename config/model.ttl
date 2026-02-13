@@ -6,6 +6,8 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix vdds: <https://github.com/lblod/vendor-data-distribution-service#> .
 
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
 <http://www.w3.org/ns/prov#generated>
   rdf:type vdds:HierarchyProperty ;
   rdfs:domain <http://rdf.myexperiment.org/ontologies/base/Submission> ;
@@ -13,14 +15,15 @@
 
 <http://rdf.myexperiment.org/ontologies/base/Submission>
   rdf:type vdds:Class ;
-  vdds:trigger vdds:noTrigger ; #optional
-  vdds:property vdds:allProperties ; #optional
-  vdds:optionalProperty rdf:type ; #optional
+  #vdds:trigger vdds:noTrigger ; #optional
+  #vdds:property vdds:allProperties ; #optional
+  #vdds:optionalProperty rdf:type ; #optional
+  #optional:
   vdds:targetGraphQuery """
     PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
     PREFIX muAccount: <http://mu.semte.ch/vocabularies/account/>
-
-    SELECT ?organisation ?organisationUuid ?vendor ?vendorUuid
+  
+    SELECT DISTINCT ?organisationUuid ?vendorUuid
     WHERE {
       GRAPH ?g {
         ${subject} a <http://rdf.myexperiment.org/ontologies/base/Submission> .
@@ -39,15 +42,6 @@
 
 <http://lblod.data.gift/vocabularies/automatische-melding/FormData>
   rdf:type vdds:Subclass ;
-  vdds:trigger """
-    ASK {
-      ${subject} a <http://lblod.data.gift/vocabularies/automatische-melding/FormData> .
-      ?submission
-        a <http://rdf.myexperiment.org/ontologies/base/Submission> ;
-        <http://www.w3.org/ns/prov#generated> ${subject} .
-      }
-  """ ;
-  vdds:property vdds:allProperties ;
   vdds:postProcessQuery """
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     PREFIX formdata: <http://lblod.data.gift/vocabularies/besluit/submission/form-data/>

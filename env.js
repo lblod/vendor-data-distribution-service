@@ -2,15 +2,15 @@ import envvar from 'env-var';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
-export const SPARQL_ENDPOINT_COPY_OPERATIONS = envvar
-  .get('SPARQL_ENDPOINT_COPY_OPERATIONS')
-  .default('http://database:8890/sparql')
-  .asUrlString();
-
-export const SPARQL_ENDPOINT_HEALING_OPERATIONS = envvar
-  .get('SPARQL_ENDPOINT_HEALING_OPERATIONS')
-  .default('http://virtuoso:8890/sparql')
-  .asUrlString();
+// export const SPARQL_ENDPOINT_COPY_OPERATIONS = envvar
+//   .get('SPARQL_ENDPOINT_COPY_OPERATIONS')
+//   .default('http://database:8890/sparql')
+//   .asUrlString();
+//
+// export const SPARQL_ENDPOINT_HEALING_OPERATIONS = envvar
+//   .get('SPARQL_ENDPOINT_HEALING_OPERATIONS')
+//   .default('http://virtuoso:8890/sparql')
+//   .asUrlString();
 
 export const TEMP_GRAPH = envvar
   .get('TEMP_GRAPH')
@@ -59,13 +59,14 @@ export const ERROR_BASE = envvar
   .default('http://data.lblod.info/errors/')
   .asUrlString();
 
-export const MU_SCOPE = envvar
-  .get('MU_SCOPE')
-  .default('http://redpencil.data.gift/id/concept/muScope/deltas/vendor-data')
-  .asUrlString();
+// export const MU_SCOPE = envvar
+//   .get('MU_SCOPE')
+//   .default('http://redpencil.data.gift/id/concept/muScope/deltas/vendor-data')
+//   .asUrlString();
 
 const PREFIXES = {
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
   xsd: 'http://www.w3.org/2001/XMLSchema#',
   mu: 'http://mu.semte.ch/vocabularies/core/',
   foaf: 'http://xmlns.com/foaf/0.1/',
@@ -76,6 +77,7 @@ const PREFIXES = {
   session: 'http://mu.semte.ch/vocabularies/session/',
   oslc: 'http://open-services.net/ns/core#',
   dct: 'http://purl.org/dc/terms/',
+  schema: 'http://schema.org/',
   vdds: 'https://github.com/lblod/vendor-data-distribution-service#',
 };
 

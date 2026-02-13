@@ -4,6 +4,8 @@ import * as mas from '@lblod/mu-auth-sudo';
 import * as env from '../env';
 import * as N3 from 'n3';
 import * as cm from '../util/config-manager';
+import * as sts from '../util/storeToTriplestore';
+import * as hel from '../util/helpers';
 import { v4 as uuidv4 } from 'uuid';
 import { NAMESPACES as ns } from '../env';
 const { namedNode, literal } = N3.DataFactory;
@@ -22,8 +24,6 @@ const sparqlConnectionOptions = {
  * unique identifiers for a subjects and so these subjects will correctly be
  * processed again later.
  *
- * TODO: rewrite with sts
- *
  * @public
  * @async
  * @function
@@ -31,38 +31,20 @@ const sparqlConnectionOptions = {
  * be inserted in the temp graph for later processing.
  * @returns {undefined} Nothing
  */
-export async function insertSubjectsForLaterProcessing(
-  subjects,
-  conHeaders = sparqlConnectionHeaders,
-  conOptions = sparqlConnectionOptions,
-) {
-  const subjectsAndUuidTriples = subjects.map((subject) => {
-    // TODO: use timestamp instead?
-    const uuid = uuidv4();
-    return `${rst.termToString(subject)} schema:identifier ${rst.termToString(literal(uuid))} .`;
-  });
+export async function insertSubjectsForLaterProcessing(subjects) {
+  const store = new N3.Store();
   const graph = namedNode(env.TEMP_GRAPH);
-  return mas.updateSudo(
-    `
-    PREFIX schema: <http://schema.org/>
-
-    INSERT DATA {
-      GRAPH ${rst.termToString(graph)} {
-        ${subjectsAndUuidTriples.join('\n')}
-      }
-    }
-  `,
-    conHeaders,
-    conOptions,
-  );
+  subjects.forEach((subject) => {
+    const uuid = uuidv4();
+    store.addQuad(subject, ns.schema`identifier`, literal(uuid), graph);
+  });
+  return sts.insertData(store);
 }
 
 /*
  * Get a collection of subjects and their unique processing identifier from the
  * temp graph. Subjects are grouped as much as possible to minimize the amount
  * of times a subject will be processed over time.
- *
- * TODO: Rewrite with sts
  *
  * @public
  * @async
@@ -72,8 +54,8 @@ export async function insertSubjectsForLaterProcessing(
  */
 export async function getSubjectsForLaterProcessing() {
   const graph = namedNode(env.TEMP_GRAPH);
-  // TODO: use sort by timestamp?
-  const response = await mas.querySudo(`
+  return sts.getDataFromConstructQuery(
+    `
     CONSTRUCT {
       ?s ?p ?o .
     }
@@ -91,21 +73,15 @@ export async function getSubjectsForLaterProcessing() {
         ?s ?p ?o .
       }
     }
-  `);
-  const parsedResults = sparqlJsonParser.parseJsonResults(response);
-  const store = new N3.Store();
-  parsedResults.forEach((parsedResult) => {
-    store.addQuad(parsedResult.s, parsedResult.p, parsedResult.o, graph);
-  });
-  return store;
+  `,
+    graph,
+  );
 }
 
 /*
  * Removes from the temp graph the given subjects with their unique identifier.
  * Not just all the triples for that subject, but only the identifiers that
  * have been processed.
- *
- * TODO: rewrite with sts
  *
  * @public
  * @async
@@ -114,31 +90,9 @@ export async function getSubjectsForLaterProcessing() {
  * the response from `getSubjectsForLaterProcessing`.
  * @returns {undefined} Nothing
  */
-export async function removeSubjectsForLaterProcessing(
-  store,
-  conHeaders = sparqlConnectionHeaders,
-  conOptions = sparqlConnectionOptions,
-) {
-  if (store.size > 0) {
-    const triples = [];
-    store.forEach((quad) => {
-      triples.push(
-        `${rst.termToString(quad.subject)} ${rst.termToString(quad.predicate)} ${rst.termToString(quad.object)} .`,
-      );
-    });
-    const graph = namedNode(env.TEMP_GRAPH);
-    await mas.updateSudo(
-      `
-      DELETE DATA {
-        GRAPH ${rst.termToString(graph)} {
-          ${triples.join('\n')}
-        }
-      }
-    `,
-      conHeaders,
-      conOptions,
-    );
-  }
+export async function removeSubjectsForLaterProcessing(store) {
+  const graph = namedNode(env.TEMP_GRAPH);
+  return sts.deleteData(store, graph);
 }
 
 class SubjectConfig {
@@ -148,8 +102,19 @@ class SubjectConfig {
   }
 }
 
-/**
- * TODO: document
+/*
+ * Fetch types (rdf:type) for the subjects from the triplestore, and filter
+ * them by configuration. Then execute the trigger pattern from the config and
+ * build a list of only the subjects that pass the trigger.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {Array(NamedNode)} subjects - An array with subjects.
+ * @returns {Array(Object)} An array of objects with the keys `subject`, `type`
+ * and `config`, where `subject` points to a NamedNode from the input array
+ * that is of interest. `type` is the `rdf:type` of that subject, and `config`
+ * is the config object that matched with the subject.
  */
 export async function filterForWantedSubjects(subjects) {
   const wantedSubjects = [];
@@ -174,95 +139,45 @@ export async function filterForWantedSubjects(subjects) {
   return wantedSubjects;
 }
 
-/*
- * Fetch types (rdf:type) for the subjects from the triplestore, and filter
- * them by configuration. Then execute the trigger pattern from the config and
- * build a list of only the subjects that pass the trigger.
+/**
+ * For a collection of subjects, find their `rdf:type`. The triplestore is used
+ * for this.
  *
- * @public
  * @async
  * @function
- * @param {Array(NamedNode)} subjects - An array with subjects.
- * @returns {Array(Object)} An array of objects with the keys `subject`, `type`
- * and `config`, where `subject` points to a NamedNode from the input array
- * that is of interest. `type` is the `rdf:type` of that subject, and `config`
- * is the config object that matched with the subject.
+ * @param {Array(NamedNode)} subjects - Array of NamedNodes that represent
+ * subjects for which the type information is needed.
+ * @returns {N3.Store} A store with triples like `<somesubject> rdf:type
+ * <sometype> .`
  *
- * WARNING:
- *  - The current implementation works for deletes too, but that's
- *    mainly because the vendor-graph is not flushed when this function is
- *    called. So: be cautious when shuffling this function around
- *
- * TODO: deprecate
- */
-// export async function filterForWantedSubjectsOld(subjects) {
-//   const wantedSubjects = [];
-//   if (subjects.length > 0) {
-//     const response = await mas.querySudo(`
-//       PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-//
-//       SELECT DISTINCT ?subject ?type WHERE {
-//         VALUES ?subject {
-//           ${subjects.map(rst.termToString).join(' ')}
-//         }
-//         ?subject rdf:type ?type .
-//       }
-//     `);
-//     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-//     // const wantedSubjects = [];
-//
-//     for (const result of parsedResults) {
-//       const confs = conf.subjects.filter((s) => s.type === result.type.value);
-//       for (const conf of confs) {
-//         const triggerResponse = await mas.querySudo(`
-//           ASK {
-//             VALUES ?subject { ${rst.termToString(result.subject)} }
-//             ${conf.trigger}
-//           }`);
-//         const isTriggering = sparqlJsonParser.parseJsonBoolean(triggerResponse);
-//         if (isTriggering)
-//           // TODO: use case class
-//           wantedSubjects.push({
-//             subject: result.subject,
-//             type: result.type,
-//             config: conf,
-//           });
-//       }
-//     }
-//   }
-//   return wantedSubjects;
-// }
-
-/**
- * TODO: document
  * TODO: use caching
- * TODO: rewrite with sts?
  */
 async function getTypesForSubjects(subjects) {
-  const response = await mas.querySudo(`
+  return sts.getDataFromConstructQuery(`
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-    SELECT DISTINCT ?subject ?type WHERE {
+    CONSTRUCT {
+      ?subject rdf:type ?type .
+    }
+    WHERE {
       VALUES ?subject {
         ${subjects.map(rst.termToString).join(' ')}
       }
       ?subject rdf:type ?type .
     }
   `);
-  const parsedResults = sparqlJsonParser.parseJsonResults(response);
-  const store = new N3.Store();
-  parsedResults.forEach((result) => {
-    store.addQuad(
-      namedNode(result.subject.value),
-      ns.rdf`type`,
-      namedNode(result.type.value),
-    );
-  });
-  return store;
 }
 
 /**
- * TODO: document
+ * Executes a SPARQL trigger pattern on the subjects in the triplestore to see
+ * if it matches.
+ *
+ * @async
+ * @function
+ * @param {NamedNode} Subject for wich a SPARQL pattern should match.
+ * @param {Literal} trigger - An RDFJS Literal with a SPARQL pattern that is
+ * inserted in an ASK query with '${subject}' replaced with the given subject.
+ * @returns {Boolean} True if the ASK query matches, false otherwise.
  */
 async function matchTriggerOnSubject(subject, trigger) {
   const triggerResponse = await mas.querySudo(`
@@ -274,227 +189,150 @@ async function matchTriggerOnSubject(subject, trigger) {
 }
 
 /**
- * TODO: document
- */
-export async function targetGraphs(subject, config) {
-  const targetQueryStr = cm
-    .targetGraphQuery(config)
-    .value.replace('${subject}', rst.termToString(subject));
-  const targetGraphTemplateStr = cm.targetGraphTemplate(config).value;
-  const response = await mas.querySudo(targetQueryStr);
-  const bindings = response.bindings;
-  const parsedResults = sparqlJsonParser.parseJsonResults(response);
-  return parsedResults.map((res) => {
-    let graph = targetGraphTemplateStr;
-    bindings.forEach((binding) => {
-      const regex = new RegExp('${' + binding + '}', 'g');
-      graph = graph.replace(regex, res[binding].value);
-    });
-    return namedNode(graph);
-  });
-}
-
-/*
- * Get an object with information about the vendor that published a set of
- * data. Starting from the subject and its type (rdf:type).
+ * For a subject and a configuration, execute the targetGraphQuery and
+ * substitute the recieved variables with their values in the
+ * targetGraphTemplate. This results in possibly multiple target graphs, which
+ * are all returned.
  *
  * @public
  * @async
  * @function
- * @param {NamedNode} subject - Represents the URI of the subject that is being
- * reported by the vendor we want the information about.
- * @param {NamedNode} type - Represents the URI of the type of the subject.
- * @returns {Object} An object with keys `vendor` and `organisation`, each
- * containing a new object with keys `id` and `uri` containing the mu:uuid and
- * the URI respectively. Returns undefined when no config for this subject is
- * found.
- *
- * TODO: deprecate
+ * @param {NamedNode} subject - Subject on which to substitute and execute the
+ * target graph query from the configuration.
+ * @param {NamedNode} config - Represents the configuration entry for this
+ * subject.
+ * @returns {Array(NamedNode)} A collection with NamedNodes representing the
+ * calculated target graphs.
  */
-// export async function getVendorInfoFromSubject(subject, type, config) {
-//   if (config.path) {
-//     const response = await mas.querySudo(`
-//       ${env.SPARQL_PREFIXES}
-//       SELECT DISTINCT ?vendor ?vendorId ?organisation ?organisationId WHERE {
-//         VALUES ?subject { ${rst.termToString(subject)} }
-//         ${config.path}
-//         ?vendor
-//           muAccount:canActOnBehalfOf ?organisation ;
-//           mu:uuid ?vendorId .
-//         ?organisation
-//           mu:uuid ?organisationId .
-//       }
-//     `);
-//     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-//     return parsedResults.map((r) => {
-//       return {
-//         vendor: {
-//           id: r?.vendorId,
-//           uri: r?.vendor,
-//         },
-//         organisation: {
-//           id: r?.organisationId,
-//           uri: r?.organisation,
-//         },
-//       };
-//     });
-//   }
-// }
+export async function targetGraphs(subject, config) {
+  const targetQuery = cm.targetGraphQuery(config);
+  if (targetQuery) {
+    const substitutedQuery = targetQuery.value.replace(
+      '${subject}',
+      rst.termToString(subject),
+    );
+    const targetGraphTemplateStr = cm.targetGraphTemplate(config).value;
+    const response = await mas.querySudo(substitutedQuery);
+    const vars = response.head.vars;
+    const parsedResults = sparqlJsonParser.parseJsonResults(response);
+    return parsedResults.map((res) => {
+      let graph = targetGraphTemplateStr;
+      vars.forEach((varname) => {
+        const regex = new RegExp('\\${' + varname + '}', 'g');
+        graph = graph.replace(regex, res[varname].value);
+      });
+      return namedNode(graph);
+    });
+  } else {
+    return cm.targetGraphTemplate(config);
+  }
+}
 
+/**
+ * Copies all the data (including deletes) for a subject to the target graph.
+ * Data is first fetched from the triplestore to see if any deletes or inserts
+ * are actually needed via in-memory triple stores and by calculating diffs.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} subject - Subject for which to copy data to the target
+ * graph.
+ * @param {NamedNode} config - Represents the config that fits for this
+ * subject.
+ * @param {Literal} graph - Graph to which to copy data about this subject to,
+ * the target graph.
+ * @returns {undefined} Nothing.
+ */
 export async function transferDataToTarget(subject, config, graph) {
-  // TODO:
-  // * get data for subject from the target graph → store
-  //    - keep in mind selected properties
-  // * get data from non-target graph → store
-  //    - keep in mind selected properties
-  // * compare stores
-  // * delete wrong or unneeded triples
-  // * insert new triples
-
   const properties = cm.properties(config);
   const optionalProperties = cm.optionalProperties(config);
   const targetStore = new N3.Store();
   const nonTargetStore = new N3.Store();
 
+  // Fetch data that is already in the target graph
   if (properties === undefined) {
     // All properties
-    const targetData = await fetchOptionalProperties(subject, [], graph);
-    targetStore.addQuads(targetData);
+    const targetData = await sts.getDataForSubject(subject, graph);
+    targetStore.addQuads([...targetData]);
   } else {
+    // Specific mandatory properties
     if (properties?.length > 0) {
-      const targetData = await fetchMandatoryProperties(
+      const targetData = await sts.getDataForSubjectMandatoryProperties(
         subject,
+        graph,
         properties,
-        graph,
       );
-      targetStore.addQuads(targetData);
+      targetStore.addQuads([...targetData]);
     }
+    // Specific optional properties
     if (optionalProperties.length > 0) {
-      const targetData = await fetchOptionalProperties(
+      const targetData = await sts.getDataForSubjectOptionalProperties(
         subject,
-        optionalProperties,
         graph,
+        optionalProperties,
       );
-      targetStore.addQuads(targetData);
+      targetStore.addQuads([...targetData]);
     }
   }
 
+  // Fetch data that is not in the target graph
   if (properties === undefined) {
     // All properties
-    const targetData = await fetchOptionalProperties(
-      subject,
-      [],
-      undefined,
-      graph,
-    );
-    nonTargetStore.addQuads(targetData);
+    const targetData = await sts.getDataForSubject(subject);
+    nonTargetStore.addQuads([...targetData]);
   } else {
+    // Specific mandatory properties
     if (properties?.length > 0) {
-      const targetData = await fetchMandatoryProperties(
+      const targetData = await sts.getDataForSubjectMandatoryProperties(
         subject,
+        undefined,
         properties,
-        undefined,
-        graph,
       );
-      nonTargetStore.addQuads(targetData);
+      nonTargetStore.addQuads([...targetData]);
     }
+    // Specific optional properties
     if (optionalProperties.length > 0) {
-      const targetData = await fetchOptionalProperties(
+      const targetData = await sts.getDataForSubjectOptionalProperties(
         subject,
-        optionalProperties,
         undefined,
-        graph,
+        optionalProperties,
       );
-      nonTargetStore.addQuads(targetData);
+      nonTargetStore.addQuads([...targetData]);
     }
   }
-
-  const { inserts, deletes } = compareStores(nonTargetStore, targetStore);
-
-  await deleteStore(deletes);
-  await insertStore(inserts, graph);
-}
-
-/*
- * Perform the removal of data from the vendor graph, based on the config for
- * that type of subject. This selects data from anywhere to delete from the
- * vendor graph in order not to miss anything.
- *
- * @public
- * @async
- * @function
- * @param {NamedNode} subject - Subject for which data is to be removed.
- * @param {Object} config - Configuration object for that subject. Should
- * contain the `remove` property to be able to construct a DELETE query.
- * @param {NamedNode} graph - Vendor graph to remove the data from.
- * @returns {undefined} Nothing
- *
- * TODO: deprecate
- */
-export async function removeDataFromVendorGraph(
-  subject,
-  config,
-  graph,
-  conHeaders = sparqlConnectionHeaders,
-  conOptions = sparqlConnectionOptions,
-) {
-  // No filter on graph in the where clause, we need to be able to delete
-  // everything
-  await mas.updateSudo(
-    `
-    DELETE {
-      GRAPH ${rst.termToString(graph)} {
-        ${config.remove.delete}
-      }
-    }
-    WHERE {
-      VALUES ?subject { ${rst.termToString(subject)} }
-      ${config.remove.where}
-    }`,
-    conHeaders,
-    conOptions,
+  // Specifically remove all the quads from the target graph and the temp graph
+  const targetGraphMatches = nonTargetStore.getQuads(
+    undefined,
+    undefined,
+    undefined,
+    graph,
   );
-}
-
-/*
- * Copy data from organisation graphs to the given vendor graph for the given
- * subject.
- *
- * @public
- * @async
- * @function
- * @param {NamedNode} subject - Subject for which data is to be copied.
- * @param {Object} config - Configuration object for that subject. Should
- * contain the `copy` property to be able to construct an INSERT query.
- * @param {NamedNode} graph - Vendor graph to copy data to.
- * @returns {undefined} Nothing
- *
- * TODO: deprecate
- */
-export async function copyDataToVendorGraph(
-  subject,
-  config,
-  graph,
-  conHeaders = sparqlConnectionHeaders,
-  conOptions = sparqlConnectionOptions,
-) {
-  await mas.updateSudo(
-    `
-    INSERT {
-      GRAPH ${rst.termToString(graph)} {
-        ${config.copy.insert}
-      }
-    }
-    WHERE {
-      GRAPH ?g {
-        VALUES ?subject { ${rst.termToString(subject)} }
-        ${config.copy.where}
-      }
-      FILTER (REGEX(STR(?g), "^http://mu.semte.ch/graphs/organizations/"))
-    }`,
-    conHeaders,
-    conOptions,
+  targetGraphMatches.forEach((quad) => nonTargetStore.removeQuad(quad));
+  const tempGraphMatches = nonTargetStore.getQuads(
+    undefined,
+    undefined,
+    undefined,
+    namedNode(env.TEMP_GRAPH),
   );
+  tempGraphMatches.forEach((quad) => nonTargetStore.removeQuad(quad));
+
+  const nonTargetStoreWithoutGraphs = new N3.Store();
+  nonTargetStore.forEach((q) =>
+    nonTargetStoreWithoutGraphs.addQuad(q.subject, q.predicate, q.object),
+  );
+  const targetStoreWithoutGraphs = new N3.Store();
+  targetStore.forEach((q) =>
+    targetStoreWithoutGraphs.addQuad(q.subject, q.predicate, q.object),
+  );
+
+  const { left, right } = hel.compareStores(
+    nonTargetStoreWithoutGraphs,
+    targetStoreWithoutGraphs,
+  );
+
+  await sts.deleteData(right, graph);
+  await sts.insertData(left, graph);
 }
 
 /*
@@ -513,7 +351,7 @@ export async function copyDataToVendorGraph(
  * @param {NamedNode} graph - Vendor graph in which to perform the processing.
  * @returns {undefined} Nothing
  *
- * TODO: deprecate
+ * TODO: deprecate and replace
  */
 export async function postProcess(
   subject,
