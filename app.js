@@ -64,7 +64,7 @@ app.post('/delta', async function (req, res, next) {
     await dm.insertSubjectsForLaterProcessing(subjects);
     timerLock.acquire();
     if (!runningTimer)
-      runningTimer = setTimeout(processTemp, env.PROCESSING_INTERVAL);
+      runningTimer = setTimeout(process, env.PROCESSING_INTERVAL);
   } catch (err) {
     next(err);
   } finally {
@@ -76,13 +76,13 @@ app.post('/delta', async function (req, res, next) {
  * This endpoint is meant to manually be able to start the processing of
  * batches from the temporary graph.
  */
-app.post('/process-temp', async function (req, res, next) {
+app.post('/process', async function (req, res, next) {
   // Send success code back. We will execute the processing later
   res.status(200).send({
     message: 'Processing the temporary graph will start.',
   });
   try {
-    await processTemp();
+    await process();
   } catch (err) {
     next(err);
   }
@@ -92,7 +92,7 @@ app.post('/process-temp', async function (req, res, next) {
  * Process batches from the temporary graph, print results and restart a timer
  * for a new processing round if there were any subjects in the batch.
  */
-async function processTemp() {
+async function process() {
   processingLock.acquire();
   runningTimer = undefined;
   try {
@@ -100,7 +100,7 @@ async function processTemp() {
     handleProcessingResult(result);
     timerLock.acquire();
     if (result?.count)
-      runningTimer = setTimeout(processTemp, env.PROCESSING_INTERVAL);
+      runningTimer = setTimeout(process, env.PROCESSING_INTERVAL);
   } catch (err) {
     await logError(err);
   } finally {
