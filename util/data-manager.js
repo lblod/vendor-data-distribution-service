@@ -1,6 +1,6 @@
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
-import * as mas from '@lblod/mu-auth-sudo';
+import * as ss from '../util/sparql-sudo';
 import * as env from '../env';
 import * as N3 from 'n3';
 import * as cm from '../util/config-manager';
@@ -10,13 +10,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { NAMESPACES as ns } from '../env';
 const { namedNode, literal } = N3.DataFactory;
 const sparqlJsonParser = new sjp.SparqlJsonParser();
-const sparqlConnectionHeaders = {
-  'mu-call-scope-id': env.MU_SCOPE,
-};
-const sparqlConnectionOptions = {
-  sparqlEndpoint: env.SPARQL_ENDPOINT_COPY_OPERATIONS,
-  mayRetry: true,
-};
 
 /*
  * Insert in a temp graph the given subjects with a unique identifier. These
@@ -190,7 +183,7 @@ export async function getTypesForSubjects(subjects) {
  * @returns {Boolean} True if the ASK query matches, false otherwise.
  */
 async function matchTriggerOnSubject(subject, trigger) {
-  const triggerResponse = await mas.querySudo(`
+  const triggerResponse = await ss.querySudo(`
     ASK {
       VALUES ?subject { ${rst.termToString(subject)} }
       ${rst.termToString(trigger)}
@@ -215,7 +208,7 @@ export async function hierarchyTop(subjectWithConfig) {
   const { topConfig, path } = cm.pathTopFromConfig(config);
   if (path.length > 0) {
     const pathString = path.map(cm.type).map(rst.termToString).join(' / ');
-    const response = await mas.querySudo(`
+    const response = await ss.querySudo(`
       SELECT ?top ?leaf
       WHERE {
         BIND (${rst.termToString(subject)} AS ?leaf)
@@ -250,7 +243,7 @@ export async function hierarchyChildren(hierarchy) {
   const collectedChildren = [];
   for (const { path, config } of childrenConfigs) {
     const pathString = path.map(cm.type).map(rst.termToString).join(' / ');
-    const response = await mas.querySudo(`
+    const response = await ss.querySudo(`
       SELECT ?leaf
       WHERE {
         BIND (${rst.termToString(topSubject)} AS ?top)
@@ -287,7 +280,7 @@ export async function targetGraphs(subject, config) {
       rst.termToString(subject),
     );
     const targetGraphTemplateStr = cm.targetGraphTemplate(config).value;
-    const response = await mas.querySudo(substitutedQuery);
+    const response = await ss.querySudo(substitutedQuery);
     const vars = response.head.vars;
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
     return parsedResults.map((res) => {
@@ -428,13 +421,7 @@ export async function transferDataToTarget(subject, config, graph) {
  *
  * TODO: deprecate and replace
  */
-export async function postProcess(
-  subject,
-  config,
-  graph,
-  conHeaders = sparqlConnectionHeaders,
-  conOptions = sparqlConnectionOptions,
-) {
+export async function postProcess(subject, config, graph) {
   // No delete and insert → nothing to do
   if (!(config?.post?.delete || config?.post?.insert)) return;
   // No where → invalid post processing config
@@ -457,7 +444,7 @@ export async function postProcess(
     }`
     : '';
 
-  await mas.updateSudo(
+  await ss.updateSudo(
     `
     ${deletePattern}
     ${insertPattern}
@@ -468,7 +455,5 @@ export async function postProcess(
       }
     }
     `,
-    conHeaders,
-    conOptions,
   );
 }

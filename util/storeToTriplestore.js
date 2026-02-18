@@ -9,7 +9,7 @@
 
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
-import * as mas from '@lblod/mu-auth-sudo';
+import * as ss from './sparql-sudo';
 import * as N3 from 'n3';
 import * as env from '../env';
 import { NAMESPACES as ns } from '../env';
@@ -29,13 +29,13 @@ import { NAMESPACES as ns } from '../env';
  */
 export async function getDataForSubject(subject, graph) {
   const allDataResponse = graph
-    ? await mas.querySudo(`
+    ? await ss.querySudo(`
       SELECT ?p ?o WHERE {
         GRAPH ${rst.termToString(graph)} {
           ${rst.termToString(subject)} ?p ?o .
         }
       }`)
-    : await mas.querySudo(`
+    : await ss.querySudo(`
       SELECT ?p ?o ?g WHERE {
         GRAPH ?g {
           ${rst.termToString(subject)} ?p ?o .
@@ -111,7 +111,7 @@ export async function getDataForSubjectOptionalProperties(
   const propertyList = properties.map((prop) => {
     return rst.termToString(prop);
   });
-  const response = await mas.querySudo(`
+  const response = await ss.querySudo(`
     SELECT ?s ?p ?o ?g
     WHERE {
       BIND (${rst.termToString(subject)} AS ?s)
@@ -193,7 +193,7 @@ export async function getData(graph) {
     throw new Error(
       'Querying without graph is probably a mistake as it will cause an explosion of data and is therefore not allowed.',
     );
-  const response = await mas.querySudo(`
+  const response = await ss.querySudo(`
     SELECT ?s ?p ?o WHERE {
       GRAPH ${rst.termToString(graph)} {
         ?s ?p ?o .
@@ -226,7 +226,7 @@ export async function getTriplesAndAllGraphs(graph) {
     throw new Error(
       'Querying without graph is probably a mistake as it will cause an explosion of data and is therefore not allowed.',
     );
-  const response = await mas.querySudo(`
+  const response = await ss.querySudo(`
     SELECT ?s ?p ?o ?g WHERE {
       GRAPH ${rst.termToString(graph)} {
         ?s ?p ?o .
@@ -257,7 +257,7 @@ export async function getTriplesAndAllGraphs(graph) {
  * the CONSTRUCT query.
  */
 export async function getDataFromConstructQuery(query, overrideGraph) {
-  const response = await mas.querySudo(query);
+  const response = await ss.querySudo(query);
   const parser = new sjp.SparqlJsonParser();
   const parsedResults = parser.parseJsonResults(response);
   const resultStore = new N3.Store();
@@ -289,7 +289,7 @@ export async function insertData(store, graph) {
         else resolve(result);
       }),
     );
-    await mas.updateSudo(
+    await ss.updateSudo(
       `INSERT DATA {
         GRAPH ${rst.termToString(graph)} {
           ${triplesSparql}
@@ -383,7 +383,7 @@ async function deleteTriplesFromGraphWithoutBatching(graph, store) {
       else resolve(result);
     }),
   );
-  await mas.updateSudo(
+  await ss.updateSudo(
     `DELETE DATA {
       GRAPH ${rst.termToString(graph)} {
         ${triplesSparql1}
@@ -402,7 +402,7 @@ async function deleteTriplesFromGraphWithoutBatching(graph, store) {
       triplesSparql.push(formatTriple(quad));
   });
   if (triplesSparql.length)
-    await mas.updateSudo(
+    await ss.updateSudo(
       `DELETE DATA {
         GRAPH ${rst.termToString(graph)} {
           ${triplesSparql.join('\n')}

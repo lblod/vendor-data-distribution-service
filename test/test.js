@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
-import * as mas from '@lblod/mu-auth-sudo';
+import * as ss from '../util/sparql-sudo';
 import * as env from '../env';
 import * as hel from '../util/helpers';
 import * as N3 from 'n3';
@@ -94,7 +94,7 @@ export async function cleanUp() {
   await sts.deleteData(testDataStore);
   await sts.deleteData(vendorDataStore);
 
-  await mas.updateSudo(`
+  await ss.updateSudo(`
     DELETE {
       GRAPH <http://mu.semte.ch/graphs/vendors/aaaa-bbbb-cccc-1111-2222-3333/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a> {
         ?s ?p ?o .
@@ -127,7 +127,7 @@ export async function clearTestData(vendorInfo) {
   const vendorGraph = namedNode(
     `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`,
   );
-  await mas.updateSudo(`
+  await ss.updateSudo(`
     DELETE {
       GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
         ?s ?p ?o .
@@ -138,7 +138,7 @@ export async function clearTestData(vendorInfo) {
         ?s ?p ?o .
       }
     }`);
-  await mas.updateSudo(`
+  await ss.updateSudo(`
     ${env.SPARQL_PREFIXES}
     DELETE {
       GRAPH ${rst.termToString(vendorGraph)} {
@@ -196,7 +196,7 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
       }
     }
     WHERE {}`;
-  await mas.updateSudo(updateQuery);
+  await ss.updateSudo(updateQuery);
 }
 
 /*
@@ -219,7 +219,7 @@ export async function assertCorrectTestDeltas(vendorInfo) {
   const vendorGraph = namedNode(
     `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`,
   );
-  const response = await mas.querySudo(`
+  const response = await ss.querySudo(`
     ${env.SPARQL_PREFIXES}
     CONSTRUCT {
       ?s ?p ?o .
