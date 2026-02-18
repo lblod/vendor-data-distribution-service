@@ -24,17 +24,6 @@ export function getAllUniqueSubjects(changesets) {
   return subjectStrings.map(namedNode);
 }
 
-// export function compareStores(originalStore, resultStore) {
-//   // Make copy of second store, because if we already start removing things, we
-//   // will never be able to remove all intersecting triples.
-//   const resultStoreCopy = new N3.Store();
-//   resultStore.forEach((q) => resultStoreCopy.addQuad(q));
-//
-//   originalStore.forEach((q) => resultStore.removeQuad(q));
-//   resultStoreCopy.forEach((q) => originalStore.removeQuad(q));
-//   return { toRemoveStore: originalStore, toInsertStore: resultStore };
-// }
-
 class CompareStoreResult {
   constructor(left, right) {
     this.left = left;
