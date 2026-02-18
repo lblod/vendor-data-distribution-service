@@ -1,6 +1,7 @@
 import * as N3 from 'n3';
 import * as fs from 'node:fs';
 import * as rst from 'rdf-string-ttl';
+import envvar from 'env-var';
 import { NAMESPACES as ns } from '../env';
 
 /**
@@ -47,7 +48,7 @@ export function getFinalConfig() {
 
 /**
  * Reads the configuration from filesystem and parses it into an in-memory
- * store of triples. No processing on it is done yet.
+ * store of triples. It substitutes variables with environment variable values.
  *
  * @function
  * @returns {N3.Store} Store with config data.
@@ -55,10 +56,31 @@ export function getFinalConfig() {
 function readConfig() {
   const parser = new N3.Parser();
   const configFileData = fs.readFileSync('/config/model.ttl').toString();
+  const varsProcessedData = substituteVars(configFileData);
   const configStore = new N3.Store();
-  const quads = parser.parse(configFileData);
+  const quads = parser.parse(varsProcessedData);
   configStore.addQuads(quads);
   return configStore;
+}
+
+/**
+ * Takes a string and substitutes occurrences of strings like `#{var}` with the
+ * environment variable of the name between the brackets. Throws an error if
+ * the environment variable does not exist.
+ *
+ * @function
+ * @param {String} dataStr - Configuration data in string form.
+ * @returns {String} Same as the input, but with variables substituted.
+ */
+function substituteVars(dataStr) {
+  const occurences = [...dataStr.matchAll(/#{\w+}/g)];
+  const vars = occurences.map((occ) => occ[0].replace(/#{(\w+)}/, '$1'));
+  console.log(vars);
+  for (const variable of vars) {
+    const value = envvar.get(variable).required().asString();
+    dataStr = dataStr.replaceAll(`#{${variable}}`, value);
+  }
+  return dataStr;
 }
 
 // TODO: add way to re-export the config for devs to check
