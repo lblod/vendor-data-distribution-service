@@ -161,6 +161,10 @@ function warnOnInvalidConfig(store) {
 function complementConfig(store) {
   const classes = store.getSubjects(ns.rdf`type`, ns.vdds`Class`);
   const subclasses = store.getSubjects(ns.rdf`type`, ns.vdds`Subclass`);
+  const properties = store.getSubjects(
+    ns.rdf`type`,
+    ns.vdds`HierarchyProperty`,
+  );
   /**
    * Adds a specific default type triple for every VDDS config entry. A normal
    * VDDS config entry has e.g.
@@ -179,7 +183,7 @@ function complementConfig(store) {
    * meb:Submission vdds:type meb:Submission .
    * ```
    */
-  [...classes, ...subclasses].forEach((subject) => {
+  [...classes, ...subclasses, ...properties].forEach((subject) => {
     if (!store.has(subject, ns.vdds`type`))
       store.addQuad(subject, ns.vdds`type`, subject);
   });
@@ -233,6 +237,80 @@ function complementConfig(store) {
 }
 
 /**
+ * Path traversal
+ */
+
+/**
+ * Calculates the top most config element in the hierarchy (based on
+ * HierarchyProperties with domain and range) and returns it with a path to get
+ * from the top config to the given config.
+ *
+ * @public
+ * @function
+ * @param {NameNode} config - Represents the URI to the configuration entry
+ * that is part of a hierarchical structure.
+ * @returs {Object(path, topConfig)} An object with the `path` from the top
+ * element in the hierarchy to the given element and `topConfig` with the
+ * config representation for the top element.
+ */
+export function pathTopFromConfig(config) {
+  const path = [];
+  let currentConfig = config;
+  while (true) {
+    const pathProp = CONFIG.getSubjects(ns.rdfs`range`, currentConfig)[0];
+    if (pathProp) {
+      path.push(pathProp);
+      currentConfig = domain(pathProp);
+    } else break;
+  }
+  return { path: path.reverse(), topConfig: currentConfig };
+}
+
+// Input: meb:Submission1
+// Output:
+//  [
+//    {
+//      path: [ prov:generated1 ]
+//      config: am:FormData1
+//    }
+//    {
+//      path: [ dct:subject1 ]
+//      config: ext:SubmissionDocument1
+//    }
+//    {
+//      path: [ prov:generated1, prov:hasPart1 ]
+//      config: nfo:FileDataObject1
+//    }
+//  ]
+/**
+ * Takes a representation of a config and finds all child configs (also
+ * non-leaves) and combines these in a flat list with their path.
+ *
+ * @public
+ * @function
+ * @param {NameNode} config - Represents a configuration (does not need to be
+ * the top most element in a hierarchy).
+ * @param {Array(NameNode)} path - OPTIONAL List of HierarchyProperty elements
+ * from the config to precede the paths taken to the children.
+ * @returns {Array(Object(path, config))} List of objects that represent the
+ * path taken to a child element (in the form of NamedNodes that represent the
+ * config element), and the config for that child element. See the comment
+ * above for an example output.
+ */
+export function pathsToAllChildren(config, path = []) {
+  const properties = CONFIG.getSubjects(ns.rdfs`domain`, config);
+  let result = [];
+  for (const property of properties) {
+    const childConfig = CONFIG.getObjects(property, ns.rdfs`range`)[0];
+    const currentPath = [...path, property];
+    result.push({ path: currentPath, config: childConfig });
+    const nextResult = pathsToAllChildren(childConfig, currentPath);
+    result = result.concat(nextResult);
+  }
+  return result;
+}
+
+/**
  * General getters
  */
 
@@ -243,6 +321,18 @@ export function forType(type) {
 /*
  * Getters on a specific config subject
  */
+
+export function type(config) {
+  return CONFIG.getObjects(config, ns.vdds`type`)[0];
+}
+
+export function domain(config) {
+  return CONFIG.getObjects(config, ns.rdfs`domain`)[0];
+}
+
+export function range(config) {
+  return CONFIG.getObjects(config, ns.rdfs`range`)[0];
+}
 
 export function trigger(config) {
   const trigger = CONFIG.getObjects(config, ns.vdds`trigger`)[0];

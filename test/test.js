@@ -27,7 +27,8 @@ export async function prepareAndStart() {
   await sts.insertData(testDataStore);
   await sts.insertData(vendorDataStore);
 
-  const deltaMessage = JSON.stringify(msg.changesetsSubmission);
+  // const deltaMessage = JSON.stringify(msg.changesetsSubmission);
+  const deltaMessage = JSON.stringify(msg.changesetsFormData);
 
   const req = http.request('http://localhost/delta', {
     method: 'POST',

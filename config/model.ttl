@@ -5,16 +5,22 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix vdds: <https://github.com/lblod/vendor-data-distribution-service#> .
-
 @prefix dcterms: <http://purl.org/dc/terms/> .
 
 <http://www.w3.org/ns/prov#generated>
+  #vdds:type <http://www.w3.org/ns/prov#generated> ; #optional
   rdf:type vdds:HierarchyProperty ;
   rdfs:domain <http://rdf.myexperiment.org/ontologies/base/Submission> ;
   rdfs:range <http://lblod.data.gift/vocabularies/automatische-melding/FormData> .
 
+<http://purl.org/dc/terms/subject>
+  rdf:type vdds:HierarchyProperty ;
+  rdfs:domain <http://rdf.myexperiment.org/ontologies/base/Submission> ;
+  rdfs:range <http://mu.semte.ch/vocabularies/ext/SubmissionDocument> .
+
 <http://rdf.myexperiment.org/ontologies/base/Submission>
   rdf:type vdds:Class ;
+  #vdds:type <http://rdf.myexperiment.org/ontologies/base/Submission> ; #optional
   #vdds:trigger vdds:noTrigger ; #optional
   #vdds:property vdds:allProperties ; #optional
   #vdds:optionalProperty rdf:type ; #optional
@@ -70,3 +76,6 @@
       OPTIONAL { ${subject} ext:regulationType ?regulationType . }
     }
   """ .
+
+<http://mu.semte.ch/vocabularies/ext/SubmissionDocument>
+  rdf:type vdds:Subclass .

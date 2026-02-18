@@ -95,10 +95,18 @@ export async function removeSubjectsForLaterProcessing(store) {
   return sts.deleteData(store, graph);
 }
 
-class SubjectConfig {
+export class SubjectConfig {
   constructor(subject, config) {
     this.subject = subject;
     this.config = config;
+  }
+}
+
+export class Hierarchy {
+  constructor(topSubject, topConfig, children) {
+    this.topSubject = topSubject;
+    this.topConfig = topConfig;
+    this.children = children;
   }
 }
 
@@ -115,6 +123,7 @@ class SubjectConfig {
  * and `config`, where `subject` points to a NamedNode from the input array
  * that is of interest. `type` is the `rdf:type` of that subject, and `config`
  * is the config object that matched with the subject.
+ * TODO: deprecate
  */
 export async function filterForWantedSubjects(subjects) {
   const wantedSubjects = [];
@@ -143,6 +152,7 @@ export async function filterForWantedSubjects(subjects) {
  * For a collection of subjects, find their `rdf:type`. The triplestore is used
  * for this.
  *
+ * @public
  * @async
  * @function
  * @param {Array(NamedNode)} subjects - Array of NamedNodes that represent
@@ -152,7 +162,7 @@ export async function filterForWantedSubjects(subjects) {
  *
  * TODO: use caching
  */
-async function getTypesForSubjects(subjects) {
+export async function getTypesForSubjects(subjects) {
   return sts.getDataFromConstructQuery(`
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
@@ -186,6 +196,71 @@ async function matchTriggerOnSubject(subject, trigger) {
       ${rst.termToString(trigger)}
     }`);
   return sparqlJsonParser.parseJsonBoolean(triggerResponse);
+}
+
+/**
+ * Calculates and fetches for a subject its top most element in the hierarchy
+ * from the triplestore.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {SubjectConfig} subjectWithConfig - A subject and its configuration
+ * that is part of a hierarchy. (A hierarchy of 1 element is possible too.)
+ * @returns {SubjectConfig} The subject and its configuration that are the top
+ * elements of a hierarchy.
+ */
+export async function hierarchyTop(subjectWithConfig) {
+  const { subject, config } = subjectWithConfig;
+  const { topConfig, path } = cm.pathTopFromConfig(config);
+  if (path.length > 0) {
+    const pathString = path.map(cm.type).map(rst.termToString).join(' / ');
+    const response = await mas.querySudo(`
+      SELECT ?top ?leaf
+      WHERE {
+        BIND (${rst.termToString(subject)} AS ?leaf)
+        ?top ${pathString} ?leaf .
+      } LIMIT 1
+    `);
+    const parsedResults = sparqlJsonParser.parseJsonResults(response);
+    if (parsedResults.length > 1)
+      throw new Error(
+        `There should only be one path between a leaf element and their hierarchy top element. Found these top elements: ${parsedResults.map((r) => r.top.value).join(' \n ')}`,
+      );
+    const top = parsedResults[0].top;
+    return new SubjectConfig(top, topConfig);
+  }
+  return subjectWithConfig;
+}
+
+/**
+ * Calculates and fetches from the triplestore all child configurations and these child entities.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {Hierarchy} hierarchy - Instance representing an (usually the top
+ * most) element in a hierarchy and its config.
+ * @returns {Array(SubjectConfig)} A flat list of all the child entities and
+ * their config.
+ */
+export async function hierarchyChildren(hierarchy) {
+  const { topSubject, topConfig } = hierarchy;
+  const childrenConfigs = cm.pathsToAllChildren(topConfig);
+  const collectedChildren = [];
+  for (const { path, config } of childrenConfigs) {
+    const pathString = path.map(cm.type).map(rst.termToString).join(' / ');
+    const response = await mas.querySudo(`
+      SELECT ?leaf
+      WHERE {
+        BIND (${rst.termToString(topSubject)} AS ?top)
+        ?top ${pathString} ?leaf .
+      } LIMIT 1
+    `);
+    const parsedResults = sparqlJsonParser.parseJsonResults(response);
+    collectedChildren.push(new SubjectConfig(parsedResults[0].leaf, config));
+  }
+  return collectedChildren;
 }
 
 /**
