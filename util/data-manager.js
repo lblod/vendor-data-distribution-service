@@ -183,10 +183,14 @@ export async function getTypesForSubjects(subjects) {
  * @returns {Boolean} True if the ASK query matches, false otherwise.
  */
 async function matchTriggerOnSubject(subject, trigger) {
+  const triggerStr = rst.termToString(trigger);
+  const substitutedPattern = triggerStr.value.replaceAll(
+    '${subject}',
+    rst.termToString(subject),
+  );
   const triggerResponse = await ss.querySudo(`
     ASK {
-      VALUES ?subject { ${rst.termToString(subject)} }
-      ${rst.termToString(trigger)}
+      ${substitutedPattern}
     }`);
   return sparqlJsonParser.parseJsonBoolean(triggerResponse);
 }
@@ -275,7 +279,7 @@ export async function hierarchyChildren(hierarchy) {
 export async function targetGraphs(subject, config) {
   const targetQuery = cm.targetGraphQuery(config);
   if (targetQuery) {
-    const substitutedQuery = targetQuery.value.replace(
+    const substitutedQuery = targetQuery.value.replaceAll(
       '${subject}',
       rst.termToString(subject),
     );
@@ -287,7 +291,7 @@ export async function targetGraphs(subject, config) {
       let graph = targetGraphTemplateStr;
       vars.forEach((varname) => {
         const regex = new RegExp('\\${' + varname + '}', 'g');
-        graph = graph.replace(regex, res[varname].value);
+        graph = graph.replaceAll(regex, res[varname].value);
       });
       return namedNode(graph);
     });
@@ -404,56 +408,84 @@ export async function transferDataToTarget(subject, config, graph) {
 }
 
 /*
- * Perform post processing on the subject in the vendor graph. A configuration
+ * Perform post processing on the subject in the target graph. A configuration
  * might contain a query that is to be executed on the subject to translate
- * properties, to add extra derived triples, ... Both INSERT and DELETE
- * patterns are combined into a single query.
+ * properties, to add extra derived triples, ... If only an INSERT pattern is
+ * given, we execute an INSERT DATA query, idem when only a DELETE pattern in
+ * given. In all other cases, we execute a full DELETE ... INSERT ... WHERE
+ * query (with potentially either of the DELETE or INSERT missing).
+ * `${subject}` and `${targetgraph}` placeholders are substituted with their
+ * respective values.
  *
  * @public
  * @async
  * @function
  * @param {NamedNode} subject - Subject to perform post processing on.
- * @param {Object} config - Configuration object for that subject. Should
- * contain the `post` property to be able to construct DELETE and INSERT
- * queries.
- * @param {NamedNode} graph - Vendor graph in which to perform the processing.
+ * @param {Object} config - Configuration object for that subject.
+ * @param {NamedNode} graph - Target graph in which to perform the processing.
  * @returns {undefined} Nothing
- *
- * TODO: deprecate and replace
  */
 export async function postProcess(subject, config, graph) {
-  // No delete and insert → nothing to do
-  if (!(config?.post?.delete || config?.post?.insert)) return;
-  // No where → invalid post processing config
-  if (!config?.post?.where) return;
+  const prefixes = cm.postProcessPrefixes(config)?.value || '';
+  const [deletePattern, insertPattern, wherePattern] = [
+    cm.postProcessDelete(config),
+    cm.postProcessInsert(config),
+    cm.postProcessWhere(config),
+  ].map((pattern) => {
+    if (pattern)
+      return pattern.value
+        .replaceAll('${subject}', rst.termToString(subject))
+        .replaceAll('${targetgraph}', rst.termToString(graph));
+  });
 
-  const deletePattern = config?.post?.delete
-    ? `
-    DELETE {
-      GRAPH ${rst.termToString(graph)} {
-        ${config.post.delete}
-      }
-    }`
-    : '';
-  const insertPattern = config?.post?.insert
-    ? `
-    INSERT {
-      GRAPH ${rst.termToString(graph)} {
-        ${config.post.insert}
-      }
-    }`
-    : '';
+  // Only a DELETE, no WHERE => DELETE DATA
+  // Only an INSERT, no WHERE => INSERT DATA
+  // Any other situation => DELETE and/or INSERT with WHERE
 
-  await ss.updateSudo(
-    `
-    ${deletePattern}
-    ${insertPattern}
-    WHERE {
-      VALUES ?subject { ${rst.termToString(subject)} }
-      GRAPH ${rst.termToString(graph)} {
-        ${config.post.where}
-      }
-    }
-    `,
-  );
+  let query;
+
+  if (!deletePattern && !insertPattern) return;
+  if (deletePattern && !insertPattern && !wherePattern)
+    query = `
+      ${prefixes}
+      DELETE DATA {
+        GRAPH ${rst.termToString(graph)} {
+          ${deletePattern}
+        }
+      }`;
+  else if (!deletePattern && insertPattern && !wherePattern)
+    query = `
+      ${prefixes}
+      INSERT DATA {
+        GRAPH ${rst.termToString(graph)} {
+          ${insertPattern}
+        }
+      }`;
+  else {
+    const deletePart = deletePattern
+      ? `
+      DELETE {
+        GRAPH ${rst.termToString(graph)} {
+          ${deletePattern}
+        }
+      }`
+      : '';
+    const insertPart = insertPattern
+      ? `
+      INSERT {
+        GRAPH ${rst.termToString(graph)} {
+          ${insertPattern}
+        }
+      }`
+      : '';
+    query = `
+      ${prefixes}
+      ${deletePart}
+      ${insertPart}
+      WHERE {
+        ${wherePattern}
+      }`;
+  }
+
+  return ss.updateSudo(query);
 }

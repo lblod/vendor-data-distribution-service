@@ -48,33 +48,32 @@
 
 <http://lblod.data.gift/vocabularies/automatische-melding/FormData>
   rdf:type vdds:Subclass ;
-  vdds:postProcessQuery """
+  vdds:postProcessPrefixes """
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     PREFIX formdata: <http://lblod.data.gift/vocabularies/besluit/submission/form-data/>
-
-    DELETE {
-      ${subject}
-        ext:sessionStartedAtTime ?sessionStartedAtTime ;
-        ext:decisionType ?decisionType ;
-        ext:taxType ?taxType ;
-        ext:taxRateAmount ?taxRateAmount ;
-        ext:regulationType ?regulationType .
-    }
-    INSERT {
-      ${subject}
-        formdata:sessionStartedAtTime ?sessionStartedAtTime ;
-        formdata:submissionType ?decisionType ;
-        formdata:taxType ?taxType ;
-        formdata:taxRateAmount ?taxRateAmount ;
-        formdata:regulationType ?regulationType .
-    }
-    WHERE {
-      OPTIONAL { ${subject} ext:sessionStartedAtTime ?sessionStartedAtTime . }
-      OPTIONAL { ${subject} ext:decisionType ?decisionType . }
-      OPTIONAL { ${subject} ext:taxType ?taxType . }
-      OPTIONAL { ${subject} ext:taxRateAmount ?taxRateAmount . }
-      OPTIONAL { ${subject} ext:regulationType ?regulationType . }
-    }
+  """ ;
+  vdds:postProcessDelete """
+    ${subject}
+      ext:sessionStartedAtTime ?sessionStartedAtTime ;
+      ext:decisionType ?decisionType ;
+      ext:taxType ?taxType ;
+      ext:taxRateAmount ?taxRateAmount ;
+      ext:regulationType ?regulationType .
+  """ ;
+  vdds:postProcessInsert """
+    ${subject}
+      formdata:sessionStartedAtTime ?sessionStartedAtTime ;
+      formdata:submissionType ?decisionType ;
+      formdata:taxType ?taxType ;
+      formdata:taxRateAmount ?taxRateAmount ;
+      formdata:regulationType ?regulationType .
+  """ ;
+  vdds:postProcessWhere """
+    OPTIONAL { ${subject} ext:sessionStartedAtTime ?sessionStartedAtTime . }
+    OPTIONAL { ${subject} ext:decisionType ?decisionType . }
+    OPTIONAL { ${subject} ext:taxType ?taxType . }
+    OPTIONAL { ${subject} ext:taxRateAmount ?taxRateAmount . }
+    OPTIONAL { ${subject} ext:regulationType ?regulationType . }
   """ .
 
 <http://mu.semte.ch/vocabularies/ext/SubmissionDocument>

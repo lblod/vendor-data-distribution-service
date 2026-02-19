@@ -92,8 +92,11 @@ async function processEventSubjects(subjects) {
     // Copy entire hierarchy to the target graphs
     for (const graph of targetGraphs) {
       await dm.transferDataToTarget(topSubject, topConfig, graph);
-      for (const { subject, config } of children)
+      await dm.postProcess(topSubject, topConfig, graph);
+      for (const { subject, config } of children) {
         await dm.transferDataToTarget(subject, config, graph);
+        await dm.postProcess(subject, config, graph);
+      }
     }
 
     wasIngestSuccesful = true;

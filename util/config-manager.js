@@ -75,7 +75,6 @@ function readConfig() {
 function substituteVars(dataStr) {
   const occurences = [...dataStr.matchAll(/#{\w+}/g)];
   const vars = occurences.map((occ) => occ[0].replace(/#{(\w+)}/, '$1'));
-  console.log(vars);
   for (const variable of vars) {
     const value = envvar.get(variable).required().asString();
     dataStr = dataStr.replaceAll(`#{${variable}}`, value);
@@ -161,6 +160,30 @@ function errorOnInvalidConfig(store) {
         `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`targetGraphTemplate`)}, but this is never used and should be removed for clarity. Only top-level classes can have template strings, not subclasses.`,
       );
   });
+
+  // vdds:Classes or vdds:Subclasses cannot have a where clause without delete
+  // or insert pattern
+  [...classes, ...subclasses].forEach((subject) => {
+    const where = store.getObjects(subject, ns.vdds`postProcessWhere`)[0];
+    console.log('Where: ', where);
+    if (where?.value !== ns.vdds`noPostProcessWhere`.value) {
+      if (
+        store.has(
+          subject,
+          ns.vdds`postProcessInsert`,
+          ns.vdds`noPostProcessInsert`,
+        ) &&
+        store.has(
+          subject,
+          ns.vdds`postProcessDelete`,
+          ns.vdds`noPostProcessDelete`,
+        )
+      )
+        throw new Error(
+          `Subject ${rst.termToString(subject)} has a post processing WHERE clause, but no DELETE or INSERT clauses. This seems like a mistake.`,
+        );
+    }
+  });
 }
 
 /* eslint-disable no-unused-vars */
@@ -234,25 +257,43 @@ function complementConfig(store) {
   });
 
   /**
-   * Adds the default `vdds:noPostProcessing` when no post processing query is
-   * given.
-   */
-  [...classes, ...subclasses].forEach((subject) => {
-    if (!store.has(subject, ns.vdds`postProcessQuery`))
-      store.addQuad(
-        subject,
-        ns.vdds`postProcessQuery`,
-        ns.vdds`noPostProcessing`,
-      );
-  });
-
-  /**
    * Classes (not Subclasses) that have no `vdds:targetGraphQuery` get the
    * default `vdds:noQuery`.
    */
   [...classes].forEach((subject) => {
     if (!store.has(subject, ns.vdds`targetGraphQuery`))
       store.addQuad(subject, ns.vdds`targetGraphQuery`, ns.vdds`noQuery`);
+  });
+
+  /**
+   * Adds the default `vdds:noPostProcessInsert` (and also ...Delete, ...Where
+   * and ...Prefixes).
+   */
+  [...classes, ...subclasses].forEach((subject) => {
+    if (!store.has(subject, ns.vdds`postProcessPrefixes`))
+      store.addQuad(
+        subject,
+        ns.vdds`postProcessPrefixes`,
+        ns.vdds`noPostProcessPrefixes`,
+      );
+    if (!store.has(subject, ns.vdds`postProcessDelete`))
+      store.addQuad(
+        subject,
+        ns.vdds`postProcessDelete`,
+        ns.vdds`noPostProcessDelete`,
+      );
+    if (!store.has(subject, ns.vdds`postProcessInsert`))
+      store.addQuad(
+        subject,
+        ns.vdds`postProcessInsert`,
+        ns.vdds`noPostProcessInsert`,
+      );
+    if (!store.has(subject, ns.vdds`postProcessWhere`))
+      store.addQuad(
+        subject,
+        ns.vdds`postProcessWhere`,
+        ns.vdds`noPostProcessWhere`,
+      );
   });
 
   return store;
@@ -358,13 +399,13 @@ export function range(config) {
 
 export function trigger(config) {
   const trigger = CONFIG.getObjects(config, ns.vdds`trigger`)[0];
-  if (trigger.value === ns.vdds`noTrigger`.value) return undefined;
+  if (trigger?.value === ns.vdds`noTrigger`.value) return undefined;
   return trigger;
 }
 
 export function targetGraphQuery(config) {
   const query = CONFIG.getObjects(config, ns.vdds`targetGraphQuery`)[0];
-  if (query.value === ns.vdds`noQuery`.value) return undefined;
+  if (query?.value === ns.vdds`noQuery`.value) return undefined;
   return query;
 }
 
@@ -376,12 +417,12 @@ export function properties(config) {
   const properties = CONFIG.getObjects(config, ns.vdds`property`);
   if (
     properties.length === 1 &&
-    properties[0].value === ns.vdds`allProperties`.value
+    properties[0]?.value === ns.vdds`allProperties`.value
   )
     return undefined;
   if (
     properties.length === 1 &&
-    properties[0].value === ns.vdds`noProperties`.value
+    properties[0]?.value === ns.vdds`noProperties`.value
   )
     return [];
   return properties;
@@ -389,4 +430,25 @@ export function properties(config) {
 
 export function optionalProperties(config) {
   return CONFIG.getObjects(config, ns.vdds`optionalProperty`);
+}
+
+export function postProcessPrefixes(config) {
+  const prefixes = CONFIG.getObjects(config, ns.vdds`postProcessPrefixes`)[0];
+  if (prefixes?.value === ns.vdds`noPostProcessPrefixes`.value) return undefined;
+  return prefixes;
+}
+export function postProcessDelete(config) {
+  const pattern = CONFIG.getObjects(config, ns.vdds`postProcessDelete`)[0];
+  if (pattern?.value === ns.vdds`noPostProcessDelete`.value) return undefined;
+  return pattern;
+}
+export function postProcessInsert(config) {
+  const pattern = CONFIG.getObjects(config, ns.vdds`postProcessInsert`)[0];
+  if (pattern?.value === ns.vdds`noPostProcessInsert`.value) return undefined;
+  return pattern;
+}
+export function postProcessWhere(config) {
+  const pattern = CONFIG.getObjects(config, ns.vdds`postProcessWhere`)[0];
+  if (pattern?.value === ns.vdds`noPostProcessWhere`.value) return undefined;
+  return pattern;
 }
