@@ -25,20 +25,32 @@ import { NAMESPACES as ns } from '../env';
  * only search through this graph. If not given the query is still executed
  * with a GRAPH clause so that the returned result store has the correct graph
  * values.
+ * @param {Array(NamedNode)} excludeProperties - Optional. List of properties
+ * to ignore while collecting data for subject.
  * @returns {N3.Store} A store containing all the data.
  */
-export async function getDataForSubject(subject, graph) {
+export async function getDataForSubject(
+  subject,
+  graph,
+  excludeProperties = [],
+) {
+  const excludePropertiesFilter =
+    excludeProperties?.length > 0
+      ? `FILTER (?p NOT IN (${excludeProperties.map(rst.termToString).join(', ')}))`
+      : '';
   const allDataResponse = graph
     ? await ss.querySudo(`
       SELECT ?p ?o WHERE {
         GRAPH ${rst.termToString(graph)} {
           ${rst.termToString(subject)} ?p ?o .
+          ${excludePropertiesFilter}
         }
       }`)
     : await ss.querySudo(`
       SELECT ?p ?o ?g WHERE {
         GRAPH ?g {
           ${rst.termToString(subject)} ?p ?o .
+          ${excludePropertiesFilter}
         }
       }`);
   const parser = new sjp.SparqlJsonParser();

@@ -6,6 +6,7 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix vdds: <https://github.com/lblod/vendor-data-distribution-service#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
 
 <http://www.w3.org/ns/prov#generated>
   #vdds:type <http://www.w3.org/ns/prov#generated> ; #optional
@@ -47,6 +48,7 @@
 
 <http://lblod.data.gift/vocabularies/automatische-melding/FormData>
   rdf:type vdds:Subclass ;
+  vdds:excludeProperty prov:hadPrimarySource ;
   vdds:postProcessPrefixes """
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     PREFIX formdata: <http://lblod.data.gift/vocabularies/besluit/submission/form-data/>

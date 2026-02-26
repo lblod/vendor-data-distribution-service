@@ -319,6 +319,7 @@ export async function targetGraphs(subject, config) {
 export async function transferDataToTarget(subject, config, graph) {
   const properties = cm.properties(config);
   const optionalProperties = cm.optionalProperties(config);
+  const excludeProperties = cm.excludeProperties(config);
   const targetStore = new N3.Store();
   const nonTargetStore = new N3.Store();
 
@@ -332,24 +333,34 @@ export async function transferDataToTarget(subject, config, graph) {
   // Fetch data that is not in the target graph
   if (properties === undefined) {
     // All properties
-    const targetData = await sts.getDataForSubject(subject);
+    const targetData = await sts.getDataForSubject(
+      subject,
+      undefined,
+      excludeProperties,
+    );
     nonTargetStore.addQuads([...targetData]);
   } else {
     // Specific mandatory properties
     if (properties?.length > 0) {
+      const leftOverProperties = properties.filter((prop) => {
+        return !excludeProperties.some((ex) => ex.value === prop.value);
+      });
       const targetData = await sts.getDataForSubjectMandatoryProperties(
         subject,
         undefined,
-        properties,
+        leftOverProperties,
       );
       nonTargetStore.addQuads([...targetData]);
     }
     // Specific optional properties
     if (optionalProperties.length > 0) {
+      const leftOverProperties = optionalProperties.filter((prop) => {
+        return !excludeProperties.some((ex) => ex.value === prop.value);
+      });
       const targetData = await sts.getDataForSubjectOptionalProperties(
         subject,
         undefined,
-        optionalProperties,
+        leftOverProperties,
       );
       nonTargetStore.addQuads([...targetData]);
     }

@@ -362,6 +362,10 @@ export function optionalProperties(config) {
   return CONFIG.getObjects(config, ns.vdds`optionalProperty`);
 }
 
+export function excludeProperties(config) {
+  return CONFIG.getObjects(config, ns.vdds`excludeProperty`);
+}
+
 export function postProcessPrefixes(config) {
   return CONFIG.getObjects(config, ns.vdds`postProcessPrefixes`)[0];
 }
