@@ -374,20 +374,12 @@ export async function transferDataToTarget(subject, config, graph) {
     }
   }
   // Specifically remove all the quads from the target graph and the temp graph
-  const targetGraphMatches = nonTargetStore.getQuads(
-    undefined,
-    undefined,
-    undefined,
-    graph,
-  );
-  targetGraphMatches.forEach((quad) => nonTargetStore.removeQuad(quad));
-  const tempGraphMatches = nonTargetStore.getQuads(
-    undefined,
-    undefined,
-    undefined,
-    namedNode(env.TEMP_GRAPH),
-  );
-  tempGraphMatches.forEach((quad) => nonTargetStore.removeQuad(quad));
+  nonTargetStore
+    .getQuads(undefined, undefined, undefined, graph)
+    .forEach((quad) => nonTargetStore.removeQuad(quad));
+  nonTargetStore
+    .getQuads(undefined, undefined, undefined, namedNode(env.TEMP_GRAPH))
+    .forEach((quad) => nonTargetStore.removeQuad(quad));
 
   const nonTargetStoreWithoutGraphs = new N3.Store();
   nonTargetStore.forEach((q) =>

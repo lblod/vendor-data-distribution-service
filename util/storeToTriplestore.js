@@ -108,9 +108,7 @@ export async function getDataForSubjectOptionalProperties(
   properties,
 ) {
   const bindGraph = graph ? `BIND (${rst.termToString(graph)} AS ?g)` : '';
-  const propertyList = properties.map((prop) => {
-    return rst.termToString(prop);
-  });
+  const propertyList = properties.map(rst.termToString);
   const response = await ss.querySudo(`
     SELECT ?s ?p ?o ?g
     WHERE {
