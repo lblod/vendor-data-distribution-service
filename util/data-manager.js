@@ -322,31 +322,12 @@ export async function transferDataToTarget(subject, config, graph) {
   const targetStore = new N3.Store();
   const nonTargetStore = new N3.Store();
 
-  // Fetch data that is already in the target graph
-  if (properties === undefined) {
-    // All properties
-    const targetData = await sts.getDataForSubject(subject, graph);
-    targetStore.addQuads([...targetData]);
-  } else {
-    // Specific mandatory properties
-    if (properties?.length > 0) {
-      const targetData = await sts.getDataForSubjectMandatoryProperties(
-        subject,
-        graph,
-        properties,
-      );
-      targetStore.addQuads([...targetData]);
-    }
-    // Specific optional properties
-    if (optionalProperties.length > 0) {
-      const targetData = await sts.getDataForSubjectOptionalProperties(
-        subject,
-        graph,
-        optionalProperties,
-      );
-      targetStore.addQuads([...targetData]);
-    }
-  }
+  // Get everything from the target graph, don't filter on mandatory and
+  // optional properties, because we know that that data has already gone
+  // through the filtering before. We also need to be able to remove unneeded
+  // data.
+  const targetData = await sts.getDataForSubject(subject, graph);
+  targetStore.addQuads([...targetData]);
 
   // Fetch data that is not in the target graph
   if (properties === undefined) {
