@@ -312,83 +312,88 @@ export async function targetGraphs(subject, config) {
  * graph.
  * @param {NamedNode} config - Represents the config that fits for this
  * subject.
- * @param {Literal} graph - Graph to which to copy data about this subject to,
- * the target graph.
+ * @param {Array(Literal)} targetGraphs - List of graphs to which to copy data
+ * about this subject to, the target graphs.
  * @returns {undefined} Nothing.
  */
-export async function transferDataToTarget(subject, config, graph) {
+export async function transferDataToTargets(subject, config, targetGraphs) {
   const properties = cm.properties(config);
   const optionalProperties = cm.optionalProperties(config);
   const excludeProperties = cm.excludeProperties(config);
-  const targetStore = new N3.Store();
-  const nonTargetStore = new N3.Store();
 
-  // Get everything from the target graph, don't filter on mandatory and
-  // optional properties, because we know that that data has already gone
-  // through the filtering before. We also need to be able to remove unneeded
-  // data.
-  const targetData = await sts.getDataForSubject(subject, graph);
-  targetStore.addQuads([...targetData]);
+  for (const graph of targetGraphs) {
+    const targetStore = new N3.Store();
+    const sourceStore = new N3.Store();
 
-  // Fetch data that is not in the target graph
-  if (properties === undefined) {
-    // All properties
-    const targetData = await sts.getDataForSubject(
-      subject,
-      undefined,
-      excludeProperties,
+    // Get everything from the target graph, don't filter on mandatory and
+    // optional properties, because we know that that data has already gone
+    // through the filtering before. We also need to be able to remove unneeded
+    // data.
+    const targetData = await sts.getDataForSubject(subject, graph);
+    targetStore.addQuads([...targetData]);
+
+    // Fetch data that is not in the target graph
+    if (properties === undefined) {
+      // All properties
+      const targetData = await sts.getDataForSubject(
+        subject,
+        undefined,
+        excludeProperties,
+      );
+      sourceStore.addQuads([...targetData]);
+    } else {
+      // Specific mandatory properties
+      if (properties?.length > 0) {
+        const leftOverProperties = properties.filter((prop) => {
+          return !excludeProperties.some((ex) => ex.value === prop.value);
+        });
+        const targetData = await sts.getDataForSubjectMandatoryProperties(
+          subject,
+          undefined,
+          leftOverProperties,
+        );
+        sourceStore.addQuads([...targetData]);
+      }
+      // Specific optional properties
+      if (optionalProperties.length > 0) {
+        const leftOverProperties = optionalProperties.filter((prop) => {
+          return !excludeProperties.some((ex) => ex.value === prop.value);
+        });
+        const targetData = await sts.getDataForSubjectOptionalProperties(
+          subject,
+          undefined,
+          leftOverProperties,
+        );
+        sourceStore.addQuads([...targetData]);
+      }
+    }
+    // Specifically remove all the quads from all the target graphs and the temp graph
+    for (const possibleTargetGraph of targetGraphs) {
+      sourceStore
+        .getQuads(undefined, undefined, undefined, possibleTargetGraph)
+        .forEach((quad) => sourceStore.removeQuad(quad));
+    }
+    sourceStore
+      .getQuads(undefined, undefined, undefined, namedNode(env.TEMP_GRAPH))
+      .forEach((quad) => sourceStore.removeQuad(quad));
+
+    const sourceStoreWithoutGraphs = new N3.Store();
+    sourceStore.forEach((q) =>
+      sourceStoreWithoutGraphs.addQuad(q.subject, q.predicate, q.object),
     );
-    nonTargetStore.addQuads([...targetData]);
-  } else {
-    // Specific mandatory properties
-    if (properties?.length > 0) {
-      const leftOverProperties = properties.filter((prop) => {
-        return !excludeProperties.some((ex) => ex.value === prop.value);
-      });
-      const targetData = await sts.getDataForSubjectMandatoryProperties(
-        subject,
-        undefined,
-        leftOverProperties,
-      );
-      nonTargetStore.addQuads([...targetData]);
-    }
-    // Specific optional properties
-    if (optionalProperties.length > 0) {
-      const leftOverProperties = optionalProperties.filter((prop) => {
-        return !excludeProperties.some((ex) => ex.value === prop.value);
-      });
-      const targetData = await sts.getDataForSubjectOptionalProperties(
-        subject,
-        undefined,
-        leftOverProperties,
-      );
-      nonTargetStore.addQuads([...targetData]);
-    }
+    const targetStoreWithoutGraphs = new N3.Store();
+    targetStore.forEach((q) =>
+      targetStoreWithoutGraphs.addQuad(q.subject, q.predicate, q.object),
+    );
+
+    const { left, right } = hel.compareStores(
+      sourceStoreWithoutGraphs,
+      targetStoreWithoutGraphs,
+    );
+
+    await sts.deleteData(right, graph);
+    await sts.insertData(left, graph);
   }
-  // Specifically remove all the quads from the target graph and the temp graph
-  nonTargetStore
-    .getQuads(undefined, undefined, undefined, graph)
-    .forEach((quad) => nonTargetStore.removeQuad(quad));
-  nonTargetStore
-    .getQuads(undefined, undefined, undefined, namedNode(env.TEMP_GRAPH))
-    .forEach((quad) => nonTargetStore.removeQuad(quad));
-
-  const nonTargetStoreWithoutGraphs = new N3.Store();
-  nonTargetStore.forEach((q) =>
-    nonTargetStoreWithoutGraphs.addQuad(q.subject, q.predicate, q.object),
-  );
-  const targetStoreWithoutGraphs = new N3.Store();
-  targetStore.forEach((q) =>
-    targetStoreWithoutGraphs.addQuad(q.subject, q.predicate, q.object),
-  );
-
-  const { left, right } = hel.compareStores(
-    nonTargetStoreWithoutGraphs,
-    targetStoreWithoutGraphs,
-  );
-
-  await sts.deleteData(right, graph);
-  await sts.insertData(left, graph);
 }
 
 /*
