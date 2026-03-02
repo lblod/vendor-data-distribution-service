@@ -103,44 +103,6 @@ export class Hierarchy {
   }
 }
 
-/*
- * Fetch types (rdf:type) for the subjects from the triplestore, and filter
- * them by configuration. Then execute the trigger pattern from the config and
- * build a list of only the subjects that pass the trigger.
- *
- * @public
- * @async
- * @function
- * @param {Array(NamedNode)} subjects - An array with subjects.
- * @returns {Array(Object)} An array of objects with the keys `subject`, `type`
- * and `config`, where `subject` points to a NamedNode from the input array
- * that is of interest. `type` is the `rdf:type` of that subject, and `config`
- * is the config object that matched with the subject.
- * TODO: deprecate
- */
-export async function filterForWantedSubjects(subjects) {
-  const wantedSubjects = [];
-  const subjectsAndTypes = await getTypesForSubjects(subjects);
-  for (const quad of subjectsAndTypes) {
-    const configs = cm.forType(quad.object);
-    for (const config of configs) {
-      const trigger = cm.trigger(config);
-      if (trigger) {
-        const triggerMatches = await matchTriggerOnSubject(
-          quad.subject,
-          trigger,
-        );
-        if (triggerMatches) {
-          wantedSubjects.push(new SubjectConfig(quad.subject, config));
-        }
-      } else {
-        wantedSubjects.push(new SubjectConfig(quad.subject, config));
-      }
-    }
-  }
-  return wantedSubjects;
-}
-
 /**
  * For a collection of subjects, find their `rdf:type`. The triplestore is used
  * for this.
