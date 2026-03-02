@@ -68,7 +68,7 @@ async function processEventSubjects(subjects) {
   for (const { subject, config } of parentsInHierarchy) {
     const trigger = cm.trigger(config);
     if (trigger) {
-      const triggerMatches = await cm.matchTriggerOnSubject(subject, trigger);
+      const triggerMatches = await dm.matchTriggerOnSubject(subject, trigger);
       if (triggerMatches)
         triggerHappyHierarchies.push(new dm.Hierarchy(subject, config));
     } else triggerHappyHierarchies.push(new dm.Hierarchy(subject, config));

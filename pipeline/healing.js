@@ -65,7 +65,7 @@ export async function heal(configs = []) {
       for (const { subject, config } of subjectsWithConfig) {
         const trigger = cm.trigger(config);
         if (trigger) {
-          const triggerMatches = await cm.matchTriggerOnSubject(
+          const triggerMatches = await dm.matchTriggerOnSubject(
             subject,
             trigger,
           );
