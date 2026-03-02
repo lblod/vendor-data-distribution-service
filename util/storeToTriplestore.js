@@ -41,8 +41,9 @@ export async function getDataForSubject(
     excludeProperties?.length > 0
       ? `FILTER (?p NOT IN (${excludeProperties.map(rst.termToString).join(', ')}))`
       : '';
-  const allDataResponse = graph
-    ? await ss.querySudo(
+  let allDataResponse;
+  if (graph) {
+    allDataResponse = await ss.querySudo(
       `SELECT ?p ?o WHERE {
         GRAPH ${rst.termToString(graph)} {
           ${rst.termToString(subject)} ?p ?o .
@@ -50,8 +51,9 @@ export async function getDataForSubject(
         }
       }`,
       mode,
-    )
-    : await ss.querySudo(
+    );
+  } else {
+    allDataResponse = await ss.querySudo(
       `SELECT ?p ?o ?g WHERE {
         GRAPH ?g {
           ${rst.termToString(subject)} ?p ?o .
@@ -60,6 +62,7 @@ export async function getDataForSubject(
       }`,
       mode,
     );
+  }
   const parser = new sjp.SparqlJsonParser();
   const parsedResults = parser.parseJsonResults(allDataResponse);
   const store = new N3.Store();
