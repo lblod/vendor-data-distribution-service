@@ -115,29 +115,25 @@ async function process() {
  * vendor graph. This effectively replaces the need for migrations and
  * provides a way to add data to the vendor graph in case of configuration
  * changes, or if something went wrong in the application.
- *
- * TODO: rewrite in the new implementation
  */
-// app.post('/healing', async function (req, res, next) {
-//   // Send success code back. We will execute the healing later.
-//   res.status(200).send({
-//     message:
-//       'Healing will start immediately. Check the logs of this service to track progress.',
-//   });
-//   try {
-//     const skipDeletes = !!req.body?.skipDeletes || false;
-//     const onlyTypes =
-//       req.body?.onlyTheseTypes?.constructor?.name === 'Array'
-//         ? req.body?.onlyTheseTypes
-//         : [];
-//     console.log(
-//       `Will start healing with skipDeletes ${skipDeletes} and filter [${onlyTypes.join(', ')}]`,
-//     );
-//     await hea.heal(skipDeletes, onlyTypes);
-//   } catch (err) {
-//     next(err);
-//   }
-// });
+app.post('/healing', async function (req, res, next) {
+  // Send success code back. We will execute the healing later.
+  res.status(200).send({
+    message:
+      'Healing will start immediately. Check the logs of this service to track progress.',
+  });
+  try {
+    // const skipDeletes = !!req.body?.skipDeletes || false;
+    const onlyConfigs =
+      req.body?.onlyTheseConfigs?.constructor?.name === 'Array'
+        ? req.body?.onlyTheseConfigs
+        : [];
+    console.log(`Will start healing with filter [${onlyConfigs.join(', ')}]`);
+    await hea.heal(onlyConfigs);
+  } catch (err) {
+    next(err);
+  }
+});
 
 /*
  * This is a test route. Because of the lack of support for test frameworks

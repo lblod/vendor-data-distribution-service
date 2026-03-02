@@ -320,6 +320,10 @@ export function forType(type) {
   return CONFIG.getSubjects(ns.vdds`type`, type);
 }
 
+export function classes() {
+  return CONFIG.getSubjects(ns.rdf`type`, ns.vdds`Class`);
+}
+
 /*
  * Getters on a specific config subject
  */

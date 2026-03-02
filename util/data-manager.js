@@ -255,7 +255,8 @@ export async function hierarchyChildren(hierarchy) {
       } LIMIT 1
     `);
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-    collectedChildren.push(new SubjectConfig(parsedResults[0].leaf, config));
+    if (parsedResults.length > 0)
+      collectedChildren.push(new SubjectConfig(parsedResults[0].leaf, config));
   }
   return collectedChildren;
 }
