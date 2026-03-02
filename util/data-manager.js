@@ -142,18 +142,23 @@ export async function getTypesForSubjects(subjects) {
  * @param {NamedNode} Subject for wich a SPARQL pattern should match.
  * @param {Literal} trigger - An RDFJS Literal with a SPARQL pattern that is
  * inserted in an ASK query with '${subject}' replaced with the given subject.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {Boolean} True if the ASK query matches, false otherwise.
  */
-async function matchTriggerOnSubject(subject, trigger) {
+async function matchTriggerOnSubject(subject, trigger, mode) {
   const triggerStr = rst.termToString(trigger);
   const substitutedPattern = triggerStr.value.replaceAll(
     '${subject}',
     rst.termToString(subject),
   );
-  const triggerResponse = await ss.querySudo(`
+  const triggerResponse = await ss.querySudo(
+    `
     ASK {
       ${substitutedPattern}
-    }`);
+    }`,
+    mode,
+  );
   return sparqlJsonParser.parseJsonBoolean(triggerResponse);
 }
 
@@ -200,22 +205,27 @@ export async function hierarchyTop(subjectWithConfig) {
  * @function
  * @param {Hierarchy} hierarchy - Instance representing an (usually the top
  * most) element in a hierarchy and its config.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {Array(SubjectConfig)} A flat list of all the child entities and
  * their config.
  */
-export async function hierarchyChildren(hierarchy) {
+export async function hierarchyChildren(hierarchy, mode) {
   const { topSubject, topConfig } = hierarchy;
   const childrenConfigs = cm.pathsToAllChildren(topConfig);
   const collectedChildren = [];
   for (const { path, config } of childrenConfigs) {
     const pathString = path.map(cm.type).map(rst.termToString).join(' / ');
-    const response = await ss.querySudo(`
+    const response = await ss.querySudo(
+      `
       SELECT ?leaf
       WHERE {
         BIND (${rst.termToString(topSubject)} AS ?top)
         ?top ${pathString} ?leaf .
       } LIMIT 1
-    `);
+    `,
+      mode,
+    );
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
     if (parsedResults.length > 0)
       collectedChildren.push(new SubjectConfig(parsedResults[0].leaf, config));
@@ -236,10 +246,12 @@ export async function hierarchyChildren(hierarchy) {
  * target graph query from the configuration.
  * @param {NamedNode} config - Represents the configuration entry for this
  * subject.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {Array(NamedNode)} A collection with NamedNodes representing the
  * calculated target graphs.
  */
-export async function targetGraphs(subject, config) {
+export async function targetGraphs(subject, config, mode) {
   const targetQuery = cm.targetGraphQuery(config);
   if (targetQuery) {
     const substitutedQuery = targetQuery.value.replaceAll(
@@ -247,7 +259,7 @@ export async function targetGraphs(subject, config) {
       rst.termToString(subject),
     );
     const targetGraphTemplateStr = cm.targetGraphTemplate(config).value;
-    const response = await ss.querySudo(substitutedQuery);
+    const response = await ss.querySudo(substitutedQuery, mode);
     const vars = response.head.vars;
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
     return parsedResults.map((res) => {
@@ -277,9 +289,16 @@ export async function targetGraphs(subject, config) {
  * subject.
  * @param {Array(Literal)} targetGraphs - List of graphs to which to copy data
  * about this subject to, the target graphs.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing.
  */
-export async function transferDataToTargets(subject, config, targetGraphs) {
+export async function transferDataToTargets(
+  subject,
+  config,
+  targetGraphs,
+  mode,
+) {
   const properties = cm.properties(config);
   const optionalProperties = cm.optionalProperties(config);
   const excludeProperties = cm.excludeProperties(config);
@@ -292,7 +311,7 @@ export async function transferDataToTargets(subject, config, targetGraphs) {
     // optional properties, because we know that that data has already gone
     // through the filtering before. We also need to be able to remove unneeded
     // data.
-    const targetData = await sts.getDataForSubject(subject, graph);
+    const targetData = await sts.getDataForSubject(subject, graph, undefined, mode);
     targetStore.addQuads([...targetData]);
 
     // Fetch data that is not in the target graph
@@ -302,6 +321,7 @@ export async function transferDataToTargets(subject, config, targetGraphs) {
         subject,
         undefined,
         excludeProperties,
+        mode,
       );
       sourceStore.addQuads([...targetData]);
     } else {
@@ -314,6 +334,7 @@ export async function transferDataToTargets(subject, config, targetGraphs) {
           subject,
           undefined,
           leftOverProperties,
+          mode,
         );
         sourceStore.addQuads([...targetData]);
       }
@@ -326,6 +347,7 @@ export async function transferDataToTargets(subject, config, targetGraphs) {
           subject,
           undefined,
           leftOverProperties,
+          mode,
         );
         sourceStore.addQuads([...targetData]);
       }
@@ -354,8 +376,8 @@ export async function transferDataToTargets(subject, config, targetGraphs) {
       targetStoreWithoutGraphs,
     );
 
-    await sts.deleteData(right, graph);
-    await sts.insertData(left, graph);
+    await sts.deleteData(right, graph, mode);
+    await sts.insertData(left, graph, mode);
   }
 }
 
@@ -375,9 +397,11 @@ export async function transferDataToTargets(subject, config, targetGraphs) {
  * @param {NamedNode} subject - Subject to perform post processing on.
  * @param {Object} config - Configuration object for that subject.
  * @param {NamedNode} graph - Target graph in which to perform the processing.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing
  */
-export async function postProcess(subject, config, graph) {
+export async function postProcess(subject, config, graph, mode) {
   const prefixes = cm.postProcessPrefixes(config)?.value || '';
   const [deletePattern, insertPattern, wherePattern] = [
     cm.postProcessDelete(config),
@@ -439,5 +463,5 @@ export async function postProcess(subject, config, graph) {
       }`;
   }
 
-  return ss.updateSudo(query);
+  return ss.updateSudo(query, mode);
 }

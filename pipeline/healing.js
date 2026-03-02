@@ -1,7 +1,7 @@
 import * as env from '../env';
 import * as dm from '../util/data-manager';
 import * as cm from '../util/config-manager';
-import * as mas from '@lblod/mu-auth-sudo';
+import * as ss from '../util/sparql-sudo';
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
 const sparqlJsonParser = new sjp.SparqlJsonParser();
@@ -29,12 +29,15 @@ export async function heal(configs = []) {
       `Processing config ${rst.termToString(config)}, which is ${configCounter + 1}/${configs.length} (${Math.round(((configCounter + 1) * 100) / configs.length)}%).`,
     );
     const type = cm.type(config);
-    const countResponse = await mas.querySudo(`
+    const countResponse = await ss.querySudo(
+      `
       SELECT (COUNT(DISTINCT ?subject) AS ?count)
       WHERE {
         ?subject rdf:type ${rst.termToString(type)} .
       }
-    `);
+    `,
+      'healing',
+    );
     const count = parseInt(
       sparqlJsonParser.parseJsonResults(countResponse)[0]?.count?.value,
     );
@@ -45,14 +48,17 @@ export async function heal(configs = []) {
       );
 
       // Query a batch of subjects to process from the current config
-      const subjectsResponse = await mas.querySudo(`
+      const subjectsResponse = await ss.querySudo(
+        `
         SELECT DISTINCT ?subject
         WHERE {
           ?subject rdf:type ${rst.termToString(type)} .
         }
         LIMIT ${env.BATCH_SIZE}
         OFFSET ${env.BATCH_SIZE * batchCount}
-      `);
+      `,
+        'healing',
+      );
       const subjectsWithConfig = sparqlJsonParser
         .parseJsonResults(subjectsResponse)
         .map((row) => new dm.SubjectConfig(row.subject, config));
@@ -68,6 +74,7 @@ export async function heal(configs = []) {
           const triggerMatches = await dm.matchTriggerOnSubject(
             subject,
             trigger,
+            'healing',
           );
           if (triggerMatches)
             triggerHappyHierarchies.push(new dm.Hierarchy(subject, config));
@@ -76,7 +83,7 @@ export async function heal(configs = []) {
 
       // Get all children in the triplestore for each hierarchy
       for (const hierarchy of triggerHappyHierarchies)
-        hierarchy.children = await dm.hierarchyChildren(hierarchy);
+        hierarchy.children = await dm.hierarchyChildren(hierarchy, 'healing');
 
       // Target graph for each hierarchy and move parent and children to target
       for (const {
@@ -84,7 +91,11 @@ export async function heal(configs = []) {
         topConfig,
         children,
       } of triggerHappyHierarchies) {
-        const targetGraphs = await dm.targetGraphs(topSubject, topConfig);
+        const targetGraphs = await dm.targetGraphs(
+          topSubject,
+          topConfig,
+          'healing',
+        );
 
         if (!targetGraphs.length) {
           console.log(
@@ -94,15 +105,25 @@ export async function heal(configs = []) {
         }
 
         // Copy entire hierarchy to the target graphs
-        await dm.transferDataToTargets(topSubject, topConfig, targetGraphs);
+        await dm.transferDataToTargets(
+          topSubject,
+          topConfig,
+          targetGraphs,
+          'healing',
+        );
         for (const { subject, config } of children)
-          await dm.transferDataToTargets(subject, config, targetGraphs);
+          await dm.transferDataToTargets(
+            subject,
+            config,
+            targetGraphs,
+            'healing',
+          );
 
         // Perform post processing
         for (const graph of targetGraphs) {
-          await dm.postProcess(topSubject, topConfig, graph);
+          await dm.postProcess(topSubject, topConfig, graph, 'healing');
           for (const { subject, config } of children)
-            await dm.postProcess(subject, config, graph);
+            await dm.postProcess(subject, config, graph, 'healing');
         }
       }
     }

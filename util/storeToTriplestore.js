@@ -27,32 +27,39 @@ import { NAMESPACES as ns } from '../env';
  * values.
  * @param {Array(NamedNode)} excludeProperties - Optional. List of properties
  * to ignore while collecting data for subject.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {N3.Store} A store containing all the data.
  */
 export async function getDataForSubject(
   subject,
   graph,
   excludeProperties = [],
+  mode,
 ) {
   const excludePropertiesFilter =
     excludeProperties?.length > 0
       ? `FILTER (?p NOT IN (${excludeProperties.map(rst.termToString).join(', ')}))`
       : '';
   const allDataResponse = graph
-    ? await ss.querySudo(`
-      SELECT ?p ?o WHERE {
+    ? await ss.querySudo(
+      `SELECT ?p ?o WHERE {
         GRAPH ${rst.termToString(graph)} {
           ${rst.termToString(subject)} ?p ?o .
           ${excludePropertiesFilter}
         }
-      }`)
-    : await ss.querySudo(`
-      SELECT ?p ?o ?g WHERE {
+      }`,
+      mode,
+    )
+    : await ss.querySudo(
+      `SELECT ?p ?o ?g WHERE {
         GRAPH ?g {
           ${rst.termToString(subject)} ?p ?o .
           ${excludePropertiesFilter}
         }
-      }`);
+      }`,
+      mode,
+    );
   const parser = new sjp.SparqlJsonParser();
   const parsedResults = parser.parseJsonResults(allDataResponse);
   const store = new N3.Store();
@@ -74,6 +81,8 @@ export async function getDataForSubject(
  * @param {NamedNode} graph - Optional graph to limit the search of data to.
  * @param {Array(NamedNode)} properties - Collection of properties to collect
  * about the subject.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {N3.Store} A store containing all the asked for properties of a
  * subject.
  *
@@ -86,12 +95,14 @@ export async function getDataForSubjectMandatoryProperties(
   subject,
   graph,
   properties,
+  mode,
 ) {
   if (!properties?.length) return new N3.Store();
   const store = await getDataForSubjectOptionalProperties(
     subject,
     graph,
     properties,
+    mode,
   );
   // Check if any of the properties is missing => reject
   for (const prop of properties)
@@ -110,6 +121,8 @@ export async function getDataForSubjectMandatoryProperties(
  * @param {NamedNode} graph - Optional graph to limit the search of data to.
  * @param {Array(NamedNode)} properties - Collection of properties to collect
  * about the subject.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {N3.Store} A store containing the asked properties about the
  * subject. Not all properties might be present if they don't exist in the
  * triplestore.
@@ -118,10 +131,12 @@ export async function getDataForSubjectOptionalProperties(
   subject,
   graph,
   properties,
+  mode,
 ) {
   const bindGraph = graph ? `BIND (${rst.termToString(graph)} AS ?g)` : '';
   const propertyList = properties.map(rst.termToString);
-  const response = await ss.querySudo(`
+  const response = await ss.querySudo(
+    `
     SELECT ?s ?p ?o ?g
     WHERE {
       BIND (${rst.termToString(subject)} AS ?s)
@@ -133,7 +148,9 @@ export async function getDataForSubjectOptionalProperties(
         ?s ?p ?o .
       }
     }
-  `);
+  `,
+    mode,
+  );
   const parser = new sjp.SparqlJsonParser();
   const parsedResults = parser.parseJsonResults(response);
   const store = new N3.Store();
@@ -287,9 +304,11 @@ export async function getDataFromConstructQuery(query, overrideGraph) {
  * @param {NamedNode} [graph] - Optional. If given ignore the graph information
  * in the quads and insert the triple in this graph. Otherwise, use the
  * internal graph information to put the triples in.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing
  */
-export async function insertData(store, graph) {
+export async function insertData(store, graph, mode) {
   const insertFunction = async (store, graph) => {
     const writer = new N3.Writer();
     store.forEach((q) => writer.addQuad(q.subject, q.predicate, q.object));
@@ -305,6 +324,7 @@ export async function insertData(store, graph) {
           ${triplesSparql}
         }
       }`,
+      mode,
     );
   };
 
@@ -326,9 +346,11 @@ export async function insertData(store, graph) {
  * @param {N3.Store} store - Store with data that needs to be deleted.
  * @param {NamedNode} [graph] - Optional. If given, only remove data from that
  * graph, other wise use graph embedded in the quad.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing
  */
-export async function deleteData(store, graph) {
+export async function deleteData(store, graph, mode) {
   const deleteFunction = async (store, graph) => {
     const triples = [...store];
     let batchSize = env.BATCH_SIZE;
@@ -337,7 +359,7 @@ export async function deleteData(store, graph) {
     while (start < triples.length) {
       try {
         const batch = triples.slice(start, start + batchSize);
-        await deleteTriplesFromGraphWithoutBatching(graph, batch);
+        await deleteTriplesFromGraphWithoutBatching(graph, batch, mode);
         start += batchSize;
         batchSize = originalBatchSize;
       } catch {
@@ -378,10 +400,12 @@ export async function deleteData(store, graph) {
  * from.
  * @param {N3.Store|Iterable} store - Store or other iterable collection
  * containing the data that needs to be removed.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing. (Might return the response object of a REST
  * call to the triplestore to remove the data.)
  */
-async function deleteTriplesFromGraphWithoutBatching(graph, store) {
+async function deleteTriplesFromGraphWithoutBatching(graph, store, mode) {
   if (store.size && store.size <= 0) return;
   if (store.length && store.length <= 0) return;
   //Use a proper writer for when the data is properly formatted.
@@ -399,6 +423,7 @@ async function deleteTriplesFromGraphWithoutBatching(graph, store) {
         ${triplesSparql1}
       }
     }`,
+    mode,
   );
 
   //Also use a self made writer to format the triples in a special way for
@@ -418,5 +443,6 @@ async function deleteTriplesFromGraphWithoutBatching(graph, store) {
           ${triplesSparql.join('\n')}
         }
       }`,
+      mode,
     );
 }

@@ -18,7 +18,6 @@ function connectionOptions(mode) {
     case 'healing':
       return sparqlConnectionOptionsHeal;
     case 'copy':
-      return sparqlConnectionOptionsCopy;
     default:
       return sparqlConnectionOptionsCopy;
   }
