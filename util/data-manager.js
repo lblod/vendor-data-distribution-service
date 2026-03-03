@@ -118,19 +118,21 @@ export class Hierarchy {
  * TODO: use caching
  */
 export async function getTypesForSubjects(subjects) {
-  return sts.getDataFromConstructQuery(`
-    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+  if (subjects?.length > 0)
+    return sts.getDataFromConstructQuery(`
+      PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-    CONSTRUCT {
-      ?subject rdf:type ?type .
-    }
-    WHERE {
-      VALUES ?subject {
-        ${subjects.map(rst.termToString).join(' ')}
+      CONSTRUCT {
+        ?subject rdf:type ?type .
       }
-      ?subject rdf:type ?type .
-    }
-  `);
+      WHERE {
+        VALUES ?subject {
+          ${subjects.map(rst.termToString).join(' ')}
+        }
+        ?subject rdf:type ?type .
+      }
+    `);
+  else return new N3.Store();
 }
 
 /**
