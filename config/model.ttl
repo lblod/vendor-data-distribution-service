@@ -23,7 +23,11 @@
   rdf:type vdds:Class ;
   #vdds:type <http://rdf.myexperiment.org/ontologies/base/Submission> ; #optional
   #vdds:property vdds:allProperties ; #optional
-  #vdds:optionalProperty rdf:type ; #optional
+  #vdds:optionalProperty rdf:type ;
+  #optional:
+  vdds:trigger """
+    ${subject} a <http://rdf.myexperiment.org/ontologies/base/Submission> .
+  """ ;
   #optional:
   vdds:targetGraphQuery """
     PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
