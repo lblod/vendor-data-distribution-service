@@ -74,12 +74,9 @@ async function processEventSubjects(subjects) {
     } else triggerHappyHierarchies.push(new dm.Hierarchy(subject, config));
   }
 
-  // Get all children in the triplestore for each hierarchy
-  for (const hierarchy of triggerHappyHierarchies)
-    hierarchy.children = await dm.hierarchyChildren(hierarchy);
-
   // Target graph for each hierarchy and move parent and children to target
-  for (const { topSubject, topConfig, children } of triggerHappyHierarchies) {
+  for (const hierarchy of triggerHappyHierarchies) {
+    const { topSubject, topConfig } = hierarchy;
     const targetGraphs = await dm.targetGraphs(topSubject, topConfig);
 
     if (!targetGraphs.length) {
@@ -89,15 +86,18 @@ async function processEventSubjects(subjects) {
       continue;
     }
 
+    // Get all children in the triplestore for each hierarchy
+    hierarchy.children = await dm.hierarchyChildren(hierarchy);
+
     // Copy entire hierarchy to the target graphs
     await dm.transferDataToTargets(topSubject, topConfig, targetGraphs);
-    for (const { subject, config } of children)
+    for (const { subject, config } of hierarchy.children)
       await dm.transferDataToTargets(subject, config, targetGraphs);
 
     // Perform post processing
     for (const graph of targetGraphs) {
       await dm.postProcess(topSubject, topConfig, graph);
-      for (const { subject, config } of children)
+      for (const { subject, config } of hierarchy.children)
         await dm.postProcess(subject, config, graph);
     }
 
