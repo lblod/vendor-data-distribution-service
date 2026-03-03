@@ -313,7 +313,12 @@ export async function transferDataToTargets(
     // optional properties, because we know that that data has already gone
     // through the filtering before. We also need to be able to remove unneeded
     // data.
-    const targetData = await sts.getDataForSubject(subject, graph, undefined, mode);
+    const targetData = await sts.getDataForSubject(
+      subject,
+      graph,
+      undefined,
+      mode,
+    );
     targetStore.addQuads([...targetData]);
 
     // Fetch data that is not in the target graph

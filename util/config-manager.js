@@ -258,6 +258,7 @@ function complementConfig(store) {
 export function pathTopFromConfig(config) {
   const path = [];
   let currentConfig = config;
+  /*eslint no-constant-condition: ["error", { "checkLoops": false }]*/
   while (true) {
     const pathProp = CONFIG.getSubjects(ns.rdfs`range`, currentConfig)[0];
     if (pathProp) {
