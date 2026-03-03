@@ -1,4 +1,3 @@
-@prefix                 prov: <http://www.w3.org/ns/prov#> .
 @prefix                  xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix                  rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix              dcterms: <http://purl.org/dc/terms/> .
@@ -7,13 +6,28 @@
 @prefix            form-data: <http://data.lblod.info/form-data/> .
 
 <http://mu.semte.ch/graphs/vendors/aaaa-bbbb-cccc-1111-2222-3333/8d30d6b5831653256923fc36280a1883> {
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://purl.org/dc/terms/subject>	<http://data.lblod.info/submission-documents/65F98FB2049CAEA56A94ACD4> .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://purl.org/dc/terms/created>	"2024-03-19T13:14:26.941Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://mu.semte.ch/vocabularies/core/uuid>	"65F98FB2049CAEA56A94ACD5" .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://www.w3.org/ns/prov#generated>	<http://data.lblod.info/form-data/a96e79a0-e5f2-11ee-b0f6-134727f6f792> .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://purl.org/pav/createdBy>	<http://data.lblod.info/id/bestuurseenheden/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a> .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://www.w3.org/ns/adms#status>	<http://lblod.data.gift/concepts/9bd8d86d-bb10-4456-a84e-91e9507c374c> .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#sentDate>	"2024-03-19T13:14:49.685Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>	<http://rdf.myexperiment.org/ontologies/base/Submission> .
-  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>	<http://purl.org/dc/terms/modified>	"2024-03-19T13:14:47.722Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>
+      a <http://rdf.myexperiment.org/ontologies/base/Submission> ;
+      core:uuid "65F98FB2049CAEA56A94ACD5" ;
+      dcterms:created "2024-03-19T13:14:26.941Z"^^xsd:dateTime ;
+      dcterms:modified "2024-03-19T13:14:47.722Z"^^xsd:dateTime ;
+      dcterms:subject submission-documents:65F98FB2049CAEA56A94ACD4 ;
+      <http://purl.org/pav/createdBy> <http://data.lblod.info/id/bestuurseenheden/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a> ;
+      <http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#sentDate> "2024-03-19T13:14:49.685Z"^^xsd:dateTime ;
+      <http://www.w3.org/ns/adms#status> <http://lblod.data.gift/concepts/9bd8d86d-bb10-4456-a84e-91e9507c374c> ;
+      <http://www.w3.org/ns/prov#generated> form-data:a96e79a0-e5f2-11ee-b0f6-134727f6f792 .
+
+  form-data:a96e79a0-e5f2-11ee-b0f6-134727f6f792
+      a <http://lblod.data.gift/vocabularies/automatische-melding/FormData> ;
+      dcterms:created "2024-03-19T13:14:26.941Z"^^xsd:dateTime ;
+      dcterms:modified "2024-03-19T13:14:47.722Z"^^xsd:dateTime .
+
+  submission-documents:65F98FB2049CAEA56A94ACD4
+      a <http://mu.semte.ch/vocabularies/ext/SubmissionDocument> ;
+      core:uuid "65F98FB2049CAEA56A94ACD4" ;
+      dcterms:source <share://semantic-forms/20240227114037-forms.ttl> ,
+                     <share://submissions/9da3ad21-e5f2-11ee-95f7-0b26ff378834.ttl> ,
+                     <share://submissions/a8fe0491-e5f2-11ee-af61-1f38860d7b3b.ttl> ,
+                     <share://submissions/a90dbc01-e5f2-11ee-af61-1f38860d7b3b.ttl> ,
+                     <share://submissions/a95c7841-e5f2-11ee-af61-1f38860d7b3b.ttl> .
 }
