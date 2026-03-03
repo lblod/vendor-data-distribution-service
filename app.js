@@ -36,10 +36,9 @@ let runningTimer = undefined;
   }
 })();
 
-// TODO: enable
-// cron.schedule(env.CLEANUP_CRON, processTemp);
+cron.schedule(env.CLEANUP_CRON, process);
 
-// runningTimer = setTimeout(processTemp, 10000);
+runningTimer = setTimeout(process, 10000);
 
 ///////////////////////////////////////////////////////////////////////////////
 // API
