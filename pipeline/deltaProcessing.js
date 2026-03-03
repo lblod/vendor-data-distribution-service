@@ -43,8 +43,6 @@ export async function processBatch() {
  * @returns {ProcessResult} Instance of ProcessResult to indicate results.
  */
 async function processEventSubjects(subjects) {
-  let wasIngestSuccesful = false;
-
   // Find types in the triplestore for all subjects
   const subjectsAndTypes = await dm.getTypesForSubjects(subjects);
 
@@ -100,8 +98,6 @@ async function processEventSubjects(subjects) {
       for (const { subject, config } of hierarchy.children)
         await dm.postProcess(subject, config, graph);
     }
-
-    wasIngestSuccesful = true;
   }
-  return new ProcessResult(wasIngestSuccesful, triggerHappyHierarchies.length);
+  return new ProcessResult(true, triggerHappyHierarchies.length);
 }
