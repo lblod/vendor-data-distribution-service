@@ -146,9 +146,9 @@ export async function getTypesForSubjects(subjects) {
  * operations ('copy') and healing operations ('healing').
  * @returns {Boolean} True if the ASK query matches, false otherwise.
  */
-async function matchTriggerOnSubject(subject, trigger, mode) {
-  const triggerStr = rst.termToString(trigger);
-  const substitutedPattern = triggerStr.value.replaceAll(
+export async function matchTriggerOnSubject(subject, trigger, mode) {
+  const triggerStr = trigger.value;
+  const substitutedPattern = triggerStr.replaceAll(
     '${subject}',
     rst.termToString(subject),
   );
