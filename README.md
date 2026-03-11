@@ -238,11 +238,12 @@ actual relationship between the represented subjects in the triplestore.
 of the `vdds:Class` and `vdds:Subclass`, and not the underlying `rdf:type` of
 the represented subject.
 
-| Property      | Cardinality | Description & Possible values                 |
-| ------------- | ----------- | --------------------------------------------- |
-| `rdf:type`    | 1           | Always needs to be `vdds:HierarchyProperty`.  |
-| `rdfs:domain` | 1           | Domain of the relationship. Use the configuration URI that represents the subject's type. |
-| `rdfs:range`  | 1           | Range of the relationship. Use the configuration URI that represents the subject's type. |
+| Property       | Cardinality | Description & Possible values                |
+| -------------- | ----------- | -------------------------------------------- |
+| `rdf:type`     | 1           | Always needs to be `vdds:HierarchyProperty`. |
+| `rdfs:domain`  | 1           | Domain of the relationship. Use the configuration URI that represents the subject's type. |
+| `rdfs:range`   | 1           | Range of the relationship. Use the configuration URI that represents the subject's type. |
+| `vdds:inverse` | 0 - 1       | Wether this relation is inverted or not. Defaults to being undefined, which is `false`. |
 
 ### Configuration example
 
