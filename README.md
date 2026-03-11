@@ -252,7 +252,18 @@ An example configuration file can be found in the config folder in this
 repository. [See
 here.](https://github.com/lblod/vendor-data-distribution-service/blob/master/config/model.ttl)
 
-## Environment variables
+## Environment variables in configuration
+
+It is possible to use environment variables in the configuration. Enclose any
+variable whithin `#{}` and define them as an environment variable in the
+`docker-compose.yml` file. These variable patterns are substituted at startup
+of the service. If a variable is not defined, the service will throw and error
+and will halt.
+
+**IMPORTANT:** make sure environment variables are correctly set! The service
+prints out its configuration as triples on the command line for inspection.
+
+## Other environment variables
 
 The following are environment variables that can be used to configure this
 service. Supply a value for them using the `environment` keyword in the
