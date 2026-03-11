@@ -27,8 +27,6 @@ export const CONFIG = getFinalConfig();
 export function getFinalConfig() {
   const rawConfig = readConfig();
   const complementedConfig = complementConfig(rawConfig);
-  errorOnInvalidConfig(complementedConfig);
-  warnOnInvalidConfig(complementedConfig);
   console.log(
     'CONFIG =========================================================================',
   );
@@ -43,6 +41,8 @@ export function getFinalConfig() {
   console.log(
     '================================================================================',
   );
+  errorOnInvalidConfig(complementedConfig);
+  warnOnInvalidConfig(complementedConfig);
   return complementedConfig;
 }
 
