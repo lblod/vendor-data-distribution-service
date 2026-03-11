@@ -26,7 +26,7 @@ export async function heal(configs = []) {
   for (let configCounter = 0; configCounter < configs.length; configCounter++) {
     const config = configs[configCounter];
     console.log(
-      `Processing config ${rst.termToString(config)}, which is ${configCounter + 1}/${configs.length} (${Math.round(((configCounter + 1) * 100) / configs.length)}%).`,
+      `HEALING: config ${rst.termToString(config)}, which is ${configCounter + 1}/${configs.length} (${Math.round(((configCounter + 1) * 100) / configs.length)}%).`,
     );
     const type = cm.type(config);
     const countResponse = await ss.querySudo(
@@ -44,7 +44,7 @@ export async function heal(configs = []) {
 
     for (let moreSubjects = true, batchCount = 0; moreSubjects; batchCount++) {
       console.log(
-        `Processing ${env.BATCH_SIZE * batchCount}-${env.BATCH_SIZE * (batchCount + 1)}/${count} (${Math.round(((batchCount + 1) * env.BATCH_SIZE * 100) / count)}%) subjects for config ${rst.termToString(config)}.`,
+        `HEALING: ${env.BATCH_SIZE * batchCount}-${env.BATCH_SIZE * (batchCount + 1)}/${count} (${Math.round(((batchCount + 1) * env.BATCH_SIZE * 100) / count)}%) subjects for config ${rst.termToString(config)}.`,
       );
 
       // Query a batch of subjects to process from the current config
@@ -92,7 +92,7 @@ export async function heal(configs = []) {
 
         if (!targetGraphs.length) {
           console.log(
-            `No target graph found for subject ${rst.termToString(topSubject)}. Skipping.`,
+            `HEALING: No target graph found for subject ${rst.termToString(topSubject)}. Skipping.`,
           );
           continue;
         }
@@ -124,5 +124,5 @@ export async function heal(configs = []) {
       }
     }
   }
-  console.log('All healing done.');
+  console.log('HEALING: All healing done.');
 }

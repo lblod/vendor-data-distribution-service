@@ -348,6 +348,10 @@ To execute healing perform the following HTTP request:
 
 Inspect the logs for progress.
 
+**Trick:** filter command line logs for the keyword "HEALING" to get some nicer
+output on the progress of the healing. E.g. `docker compose logs --tail 100 -f
+vendor-data-distribution | grep 'HEALING'`.
+
 ## Testing
 
 <strong>Testing is only possible when running this service in development mode.
