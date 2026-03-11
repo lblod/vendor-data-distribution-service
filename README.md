@@ -113,7 +113,8 @@ identifier, make sure the config for `mu-cl-resources` has the
 ```
 
 **OPTIONAL:** for making sure the vendors can only read from their own graph,
-you can configure `mu-authorization` with the following specification:
+you can configure `mu-authorization` with a specification like the following
+(adapt to your needs):
 
 ```elixir
 defp access_for_vendor_api() do
@@ -205,7 +206,7 @@ optionality and default values:
 | `vdds:trigger`             | 0 - 1       | SPARQL pattern that will be placed directly in an `ASK` query. Can be used to filter subjects. This could be anything: filter on a certain predicate, if a certain other part of the hierarchy exists or has a certain property, ... Pattern `${subject}` is substituted by the URI of the subject under consideration at the moment. |
 | `vdds:targetGraphQuery`    | 0 - 1       | A full SPARQL `SELECT` query that allows to retrieve variables for constructing the (multiple) target graphs. Can be optional if the target graph is static. The pattern `${subject}` is substituted for the URI of the subject. |
 | `vdds:targetGraphTemplate` | 1           | Template string for the target graph URIs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:targetGraphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
-| `vdds:postProcessPrefixes` | 0 - 1       | Provide prefixes, if wanted, for the SPARQL patterns in the following properties. Write them as if they are at the top of the SPARQL query. | 
+| `vdds:postProcessPrefixes` | 0 - 1       | Provide prefixes as a string, if wanted, for the SPARQL patterns in the following properties. Write them as if they are at the top of the SPARQL query. |
 | `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
 | `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
 | `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
@@ -224,7 +225,7 @@ template, can only be defined on the top most element of the hierarchy.
 | `vdds:property`            | 0 - n       | URIs of the properties on the subject that must be copied to the target graphs that all need to exist. Defaults to `vdds:allProperties`, a special URI that signals that all properties must be copied. |
 | `vdds:excludeProperty`     | 0 - n       | URIs of the properties that must not be copied to the target graphs. This "blacklists" certain properties, on top of the `vdds:property` properties list. |
 | `vdds:optionalProperty`    | 0 - n       | URIs of optional properties that may be copied to the target graphs. |
-| `vdds:postProcessPrefixes` | 0 - 1       | Provide prefixes, if wanted, for the SPARQL patterns in the following properties. Write them as if they are at the top of the SPARQL query. | 
+| `vdds:postProcessPrefixes` | 0 - 1       | Provide prefixes as a string, if wanted, for the SPARQL patterns in the following properties. Write them as if they are at the top of the SPARQL query. |
 | `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
 | `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
 | `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
@@ -370,9 +371,10 @@ submission with some related subjects (FormData, SubmissionDocument,
 RemoteDataObjects) is inserted, and then a delta message is simulated on the
 regular `/delta` endpoint. This is an asynchronous event, so inspect the logs
 to see that the test data is correctly inserted, and that the delta message is
-being proccessed. You should also wait for the timer to expire before the delta
-event is being processed before proceding with the assert step below. To force
-processing events, use the endpoint from above (`/process`) to speed things up.
+being proccessed. You should also wait for the timer to expire so that the
+delta event is being processed before proceding with the assert step below. To
+force processing events, use the endpoint from above (`/process`) to speed
+things up.
 
 **Response**
 
