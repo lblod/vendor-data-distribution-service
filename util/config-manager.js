@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as rst from 'rdf-string-ttl';
 import envvar from 'env-var';
 import { NAMESPACES as ns } from '../env';
+const { literal } = N3.DataFactory;
 
 /**
  * Variable to store the publicly available config. This is an N3.Store, read by the `readConfig` function.
@@ -107,7 +108,11 @@ function errorOnInvalidConfig(store) {
 
   // vdds:Subclass without parents
   [...subclasses].forEach((subject) => {
-    if (!store.has(undefined, ns.rdfs`range`, subject))
+    const hasAsRange = store.has(undefined, ns.rdfs`range`, subject);
+    const domainProp = store.getQuads(undefined, ns.rdfs`domain`, subject)[0];
+    const hasAsDomain =
+      domainProp && store.has(domainProp, ns.vdds`inverse`, literal(true));
+    if (!(hasAsRange || hasAsDomain))
       throw new Error(
         `Subclass ${rst.termToString(subject)} is not used as part of a hierarchy and is therefore not useful on its own. This is likely an error.`,
       );
@@ -264,7 +269,21 @@ export function pathTopFromConfig(config) {
     if (pathProp) {
       path.push(pathProp);
       currentConfig = domain(pathProp);
-    } else break;
+      continue;
+    }
+    const inversePathProp = CONFIG.getSubjects(
+      ns.rdfs`domain`,
+      currentConfig,
+    )[0];
+    if (inversePathProp) {
+      if (CONFIG.has(inversePathProp, ns.vdds`inverse`, literal(true))) {
+        inversePathProp.inverse = true;
+        path.push(inversePathProp);
+        currentConfig = range(inversePathProp);
+        continue;
+      }
+    }
+    break;
   }
   return { path: path.reverse(), topConfig: currentConfig };
 }
@@ -301,8 +320,13 @@ export function pathTopFromConfig(config) {
  * above for an example output.
  */
 export function pathsToAllChildren(config, path = []) {
-  const properties = CONFIG.getSubjects(ns.rdfs`domain`, config);
-  let result = [];
+  let properties,
+    result = [];
+
+  // Find configs with forward relations
+  properties = CONFIG.getSubjects(ns.rdfs`domain`, config).filter(
+    (property) => !CONFIG.has(property, ns.vdds`inverse`, literal(true)),
+  );
   for (const property of properties) {
     const childConfig = CONFIG.getObjects(property, ns.rdfs`range`)[0];
     const currentPath = [...path, property];
@@ -310,6 +334,22 @@ export function pathsToAllChildren(config, path = []) {
     const nextResult = pathsToAllChildren(childConfig, currentPath);
     result = result.concat(nextResult);
   }
+
+  // Find configs with backward/inverse relations
+  properties = CONFIG.getSubjects(ns.rdfs`range`, config)
+    .filter((property) => CONFIG.has(property, ns.vdds`inverse`, literal(true)))
+    .map((property) => {
+      property.inverse = true;
+      return property;
+    });
+  for (const property of properties) {
+    const childConfig = CONFIG.getObjects(property, ns.rdfs`domain`)[0];
+    const currentPath = [...path, property];
+    result.push({ path: currentPath, config: childConfig });
+    const nextResult = pathsToAllChildren(childConfig, currentPath);
+    result = result.concat(nextResult);
+  }
+
   return result;
 }
 
@@ -339,6 +379,10 @@ export function domain(config) {
 
 export function range(config) {
   return CONFIG.getObjects(config, ns.rdfs`range`)[0];
+}
+
+export function isInverse(config) {
+  return CONFIG.has(config, ns.vdds`inverse`, literal(true));
 }
 
 export function trigger(config) {

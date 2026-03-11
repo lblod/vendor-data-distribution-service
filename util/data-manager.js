@@ -180,9 +180,9 @@ export async function hierarchyTop(subjectWithConfig) {
   const { subject, config } = subjectWithConfig;
   const { topConfig, path } = cm.pathTopFromConfig(config);
   if (path.length > 0) {
-    const pathString = path.map(cm.type).map(rst.termToString).join(' / ');
+    const pathString = configPathToString(path);
     const response = await ss.querySudo(`
-      SELECT ?top ?leaf
+      SELECT ?top
       WHERE {
         BIND (${rst.termToString(subject)} AS ?leaf)
         ?top ${pathString} ?leaf .
@@ -200,7 +200,27 @@ export async function hierarchyTop(subjectWithConfig) {
 }
 
 /**
- * Calculates and fetches from the triplestore all child configurations and these child entities.
+ * Translate a path of predicates to a path string for use in a SPARQL query.
+ *
+ * @function
+ * @param {Array(NamedNode)} path - List of NamedNodes representing the configs
+ * representing the predicates between entities in the triplestore. NamedNodes
+ * can have an extra `inverse` property to identify inverse relations.
+ * @returns {String} Full SPARQL property path.
+ */
+function configPathToString(path) {
+  const pathString = path
+    .map((config) => {
+      if (cm.isInverse(config)) return `^${rst.termToString(cm.type(config))}`;
+      else return rst.termToString(cm.type(config));
+    })
+    .join(' / ');
+  return pathString;
+}
+
+/**
+ * Calculates and fetches from the triplestore all child configurations and
+ * the child entities.
  *
  * @public
  * @async
@@ -217,7 +237,7 @@ export async function hierarchyChildren(hierarchy, mode) {
   const childrenConfigs = cm.pathsToAllChildren(topConfig);
   const collectedChildren = [];
   for (const { path, config } of childrenConfigs) {
-    const pathString = path.map(cm.type).map(rst.termToString).join(' / ');
+    const pathString = configPathToString(path);
     const response = await ss.querySudo(
       `
       SELECT ?leaf
