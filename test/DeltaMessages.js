@@ -54,7 +54,7 @@ export const changesetsFormData = [
   },
 ];
 
-export const changesetsFile = [
+export const changesetsPhysicalFile = [
   {
     inserts: [
       {
