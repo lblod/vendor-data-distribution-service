@@ -109,26 +109,59 @@ async function process() {
 }
 
 /*
- * This endpoint is used for healing. This will query the database for ALL
+ * These endpoints are used for healing. This will query the database for ALL
  * subjects in the triplestore to see if that data should be inserted in the
- * vendor graph. This effectively replaces the need for migrations and
- * provides a way to add data to the vendor graph in case of configuration
- * changes, or if something went wrong in the application.
+ * vendor graph. This effectively replaces the need for migrations and provides
+ * a way to add data to the target graph in case of configuration changes, or
+ * if something went wrong in the application.
  */
-app.post('/healing', async function (req, res, next) {
+app.post('/heal', async function (req, res, next) {
   // Send success code back. We will execute the healing later.
   res.status(200).send({
     message:
       'Healing will start immediately. Check the logs of this service to track progress.',
   });
   try {
-    // const skipDeletes = !!req.body?.skipDeletes || false;
+    console.log('Will start healing on the whole configuration.');
+    await hea.heal();
+  } catch (err) {
+    next(err);
+  }
+});
+/**
+ * Only heal for a set of configurations.
+ */
+app.post('/heal/configs', async function (req, res, next) {
+  // Send success code back. We will execute the healing later.
+  res.status(200).send({
+    message:
+      'Healing will start immediately. Check the logs of this service to track progress.',
+  });
+  try {
     const onlyConfigs =
-      req.body?.onlyTheseConfigs?.constructor?.name === 'Array'
-        ? req.body?.onlyTheseConfigs
+      req.body?.configs?.constructor?.name === 'Array' ? req.body.configs : [];
+    console.log(`Will start healing with filter [${onlyConfigs.join(', ')}].`);
+    await hea.healConfigs(onlyConfigs);
+  } catch (err) {
+    next(err);
+  }
+});
+/**
+ * Only heal for a set of subjects.
+ */
+app.post('/heal/subjects', async function (req, res, next) {
+  // Send success code back. We will execute the healing later.
+  res.status(200).send({
+    message:
+      'Healing will start immediately. Check the logs of this service to track progress.',
+  });
+  try {
+    const subjects =
+      req.body?.subjects?.constructor?.name === 'Array'
+        ? req.body.subjects
         : [];
-    console.log(`Will start healing with filter [${onlyConfigs.join(', ')}]`);
-    await hea.heal(onlyConfigs);
+    console.log(`Will start healing on subjects [${subjects.join(', ')}].`);
+    await hea.healSubjects(subjects.map(namedNode));
   } catch (err) {
     next(err);
   }

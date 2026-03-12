@@ -42,7 +42,7 @@ export async function processBatch() {
  * @param {Array(NamedNode)} subjects - An array of NamedNodes representing subjects to be processed.
  * @returns {ProcessResult} Instance of ProcessResult to indicate results.
  */
-async function processEventSubjects(subjects) {
+export async function processEventSubjects(subjects) {
   // Find types in the triplestore for all subjects
   const subjectsAndTypes = await dm.getTypesForSubjects(subjects);
 

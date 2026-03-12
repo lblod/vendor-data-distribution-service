@@ -1,10 +1,36 @@
 import * as env from '../env';
+import * as dp from '../pipeline/deltaProcessing';
 import * as dm from '../util/data-manager';
 import * as cm from '../util/config-manager';
 import * as ss from '../util/sparql-sudo';
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
 const sparqlJsonParser = new sjp.SparqlJsonParser();
+
+/**
+ * Starts a full healing process, on all the configurations.
+ *
+ * @public
+ * @async
+ * @function
+ * @returns {undefined} Nothing.
+ */
+export async function heal() {
+  await healConfigs();
+}
+
+/**
+ * Starts healing on specific subjects.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {Array(NamedNode)} subjects - Subjects to heal only.
+ * @returns {ProcessResult} Instance of ProcessResult to indicate results.
+ */
+export async function healSubjects(subjects = []) {
+  if (subjects?.length > 0) return dp.processEventSubjects(subjects);
+}
 
 /**
  * "Heal" target graph data. This means going over the configurations, scanning
@@ -20,7 +46,7 @@ const sparqlJsonParser = new sjp.SparqlJsonParser();
  * healing on. If none are given, perform healing on all the configurations.
  * @returns {undefined} Nothing.
  */
-export async function heal(configs = []) {
+export async function healConfigs(configs = []) {
   configs = configs?.length > 0 ? configs : cm.classes();
 
   for (let configCounter = 0; configCounter < configs.length; configCounter++) {
