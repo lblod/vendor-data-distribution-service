@@ -335,26 +335,10 @@ CRON job, and even that cleanup job should be redundant.
 <strong>This healing implementation is somewhat rudimentary. Keep an eye on the
 logs to track its progress.</strong>
 
+### POST `/heal`
+
 Query the triplestore for subjects of the types described in the configuration.
 These subjects are processed as they normally are on incoming delta messages.
-
-To execute healing perform the following HTTP request:
-
-### POST `/healing`
-
-**Body** *OPTIONAL* JSON with the following structure:
-
-```json
-{
-  "onlyTheseConfigs": [ "http://rdf.myexperiment.org/ontologies/base/Submission" ]
-}
-```
-
-* `onlyTheseConfigs`: <em>(optional, default: `[]`)</em> an array of URI's in
-  string form that represent the configurations for which healing needs to be
-  performed. Only subjects of these types will be queried from the triplestore
-  and processed. When an empty array is given, or no JSON body at all, all
-  configurations are processed.
 
 **Returns** `200` immediately, after which the healing will start.
 
@@ -363,6 +347,44 @@ Inspect the logs for progress.
 **Trick:** filter command line logs for the keyword "HEALING" to get some nicer
 output on the progress of the healing. E.g. `docker compose logs --tail 100 -f
 vendor-data-distribution | grep 'HEALING'`.
+
+### POST `/heal/configs`
+
+Heal only a specific set of configurations. This can help speed up scenario's
+where you know that only a specific configuration has changed.
+
+**Body** *OPTIONAL* JSON with the following structure:
+
+```json
+{
+  "configs": [ "http://rdf.myexperiment.org/ontologies/base/Submission" ]
+}
+```
+
+* `configs`: <em>(optional, default: `[]`)</em> an array of URI's in
+  string form that represent the configurations for which healing needs to be
+  performed. Only subjects of these types will be queried from the triplestore
+  and processed. When an empty array is given, or no JSON body at all, all
+  configurations are processed, just like the `/heal` endpoint.
+
+**Returns** `200` immediately, after which the healing will start.
+
+### POST `/heal/subjects`
+
+Heal only certain subjects. Can also be used to speed up certain scenario's, or
+for testing out new configurations.
+
+**Body** JSON with the following structure:
+
+```json
+{
+  "subjects": [ "http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5" ]
+}
+```
+
+* `subjects`: an array of subject URI's in string form on which healing needs
+  to be performed. Only these subjects will be healed. If no subjects are
+  given, or there is no JSON body at all, nothing will happen.
 
 ## Testing
 
