@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as rst from 'rdf-string-ttl';
 import envvar from 'env-var';
 import { NAMESPACES as ns } from '../env';
-const { literal } = N3.DataFactory;
+const { namedNode, literal } = N3.DataFactory;
 
 /**
  * Variable to store the publicly available config. This is an N3.Store, read by the `readConfig` function.
@@ -12,7 +12,12 @@ const { literal } = N3.DataFactory;
  * @public
  * @constant
  */
-export const CONFIG = getFinalConfig();
+export const CONFIG = new N3.Store();
+export const PREFIXES = new Map();
+
+(async function startup() {
+  await makeConfig();
+})();
 
 /**
  * Reads and complements the configuration from filesystem. The config is
@@ -25,13 +30,19 @@ export const CONFIG = getFinalConfig();
  * @throws Throws an error in an attempt to stop the application from running
  * with an invalid config.
  */
-export function getFinalConfig() {
-  const rawConfig = readConfig();
-  const complementedConfig = complementConfig(rawConfig);
+async function makeConfig() {
+  await readConfig();
+  complementConfig();
+  console.log(
+    'PREFIXES =======================================================================',
+  );
+  PREFIXES.forEach((value, key) => {
+    console.log(`${key}: ${rst.termToString(value)}`);
+  });
   console.log(
     'CONFIG =========================================================================',
   );
-  complementedConfig.forEach((quad) => {
+  CONFIG.forEach((quad) => {
     console.log(
       rst.termToString(quad.subject),
       rst.termToString(quad.predicate),
@@ -42,9 +53,8 @@ export function getFinalConfig() {
   console.log(
     '================================================================================',
   );
-  errorOnInvalidConfig(complementedConfig);
-  warnOnInvalidConfig(complementedConfig);
-  return complementedConfig;
+  errorOnInvalidConfig();
+  warnOnInvalidConfig();
 }
 
 /**
@@ -58,10 +68,18 @@ function readConfig() {
   const parser = new N3.Parser();
   const configFileData = fs.readFileSync('/config/model.ttl').toString();
   const varsProcessedData = substituteVars(configFileData);
-  const configStore = new N3.Store();
-  const quads = parser.parse(varsProcessedData);
-  configStore.addQuads(quads);
-  return configStore;
+  return new Promise((resolve, reject) => {
+    parser.parse(varsProcessedData, (error, quad, prefixes) => {
+      if (error) reject(error);
+      if (quad) CONFIG.addQuad(quad);
+      else if (prefixes) {
+        Object.keys(prefixes).forEach((key) =>
+          PREFIXES.set(key, namedNode(prefixes[key])),
+        );
+        resolve();
+      }
+    });
+  });
 }
 
 /**
@@ -86,15 +104,15 @@ function substituteVars(dataStr) {
 // TODO: add way to re-export the config for devs to check
 // * including the prefixes that where entered in the first place
 
-function errorOnInvalidConfig(store) {
-  const classes = store.getSubjects(ns.rdf`type`, ns.vdds`Class`);
-  const subclasses = store.getSubjects(ns.rdf`type`, ns.vdds`Subclass`);
+function errorOnInvalidConfig() {
+  const classes = CONFIG.getSubjects(ns.rdf`type`, ns.vdds`Class`);
+  const subclasses = CONFIG.getSubjects(ns.rdf`type`, ns.vdds`Subclass`);
 
   // Any subject without rdf:type
-  store.getSubjects().forEach((subject) => {
+  CONFIG.getSubjects().forEach((subject) => {
     // Bug in N3? getSubjects() also returns an extra subject representing the default graph.
     if (N3.Util.isDefaultGraph(subject)) return;
-    if (!store.has(subject, ns.rdf`type`))
+    if (!CONFIG.has(subject, ns.rdf`type`))
       throw Error(
         `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.rdf`type`)}.`,
       );
@@ -108,10 +126,10 @@ function errorOnInvalidConfig(store) {
 
   // vdds:Subclass without parents
   [...subclasses].forEach((subject) => {
-    const hasAsRange = store.has(undefined, ns.rdfs`range`, subject);
-    const domainProp = store.getQuads(undefined, ns.rdfs`domain`, subject)[0];
+    const hasAsRange = CONFIG.has(undefined, ns.rdfs`range`, subject);
+    const domainProp = CONFIG.getQuads(undefined, ns.rdfs`domain`, subject)[0];
     const hasAsDomain =
-      domainProp && store.has(domainProp, ns.vdds`inverse`, literal(true));
+      domainProp && CONFIG.has(domainProp, ns.vdds`inverse`, literal(true));
     if (!(hasAsRange || hasAsDomain))
       throw new Error(
         `Subclass ${rst.termToString(subject)} is not used as part of a hierarchy and is therefore not useful on its own. This is likely an error.`,
@@ -120,7 +138,7 @@ function errorOnInvalidConfig(store) {
 
   // vdds:Class without targetGraphTemplate
   [...classes].forEach((subject) => {
-    if (!store.has(subject, ns.vdds`targetGraphTemplate`))
+    if (!CONFIG.has(subject, ns.vdds`targetGraphTemplate`))
       throw new Error(
         `Class ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`targetGraphTemplate`)}.`,
       );
@@ -129,9 +147,9 @@ function errorOnInvalidConfig(store) {
   // vdds:Class without vdds:targetGraphQuery and the vdds:targetGraphTemplate
   // uses variables
   [...classes]
-    .filter((subject) => !store.has(subject, ns.vdds`targetGraphQuery`))
+    .filter((subject) => !CONFIG.has(subject, ns.vdds`targetGraphQuery`))
     .forEach((subject) => {
-      const templateStr = store.getObjects(
+      const templateStr = CONFIG.getObjects(
         subject,
         ns.vdds`targetGraphTemplate`,
       )[0]?.value;
@@ -145,20 +163,20 @@ function errorOnInvalidConfig(store) {
   // vdds:Subclass cannot have vdds:trigger, vdds:targetGraphQuery nor
   // vdds:targetGraphTemplate
   [...subclasses].forEach((subject) => {
-    if (store.has(subject, ns.vdds`trigger`)) {
+    if (CONFIG.has(subject, ns.vdds`trigger`)) {
       throw new Error(
         `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`trigger`)}, but this never used and should be removed for clarity. Only top-level classes can have trigger patterns, not subclasses.`,
       );
     }
   });
   [...subclasses].forEach((subject) => {
-    if (store.has(subject, ns.vdds`targetGraphQuery`))
+    if (CONFIG.has(subject, ns.vdds`targetGraphQuery`))
       throw new Error(
         `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`targetGraphQuery`)}, but this is never used and should be removed for clarity. Only top-level classes can have these queries, not subclasses.`,
       );
   });
   [...subclasses].forEach((subject) => {
-    if (store.has(subject, ns.vdds`targetGraphTemplate`))
+    if (CONFIG.has(subject, ns.vdds`targetGraphTemplate`))
       throw new Error(
         `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`targetGraphTemplate`)}, but this is never used and should be removed for clarity. Only top-level classes can have template strings, not subclasses.`,
       );
@@ -167,11 +185,11 @@ function errorOnInvalidConfig(store) {
   // vdds:Classes or vdds:Subclasses cannot have a where clause without delete
   // or insert pattern
   [...classes, ...subclasses].forEach((subject) => {
-    const where = store.getObjects(subject, ns.vdds`postProcessWhere`)[0];
+    const where = CONFIG.getObjects(subject, ns.vdds`postProcessWhere`)[0];
     if (
       where &&
-      !store.has(subject, ns.vdds`postProcessInsert`) &&
-      !store.has(subject, ns.vdds`postProcessDelete`)
+      !CONFIG.has(subject, ns.vdds`postProcessInsert`) &&
+      !CONFIG.has(subject, ns.vdds`postProcessDelete`)
     )
       throw new Error(
         `Subject ${rst.termToString(subject)} has a post processing WHERE clause, but no DELETE or INSERT clauses. This seems like a mistake.`,
@@ -180,7 +198,7 @@ function errorOnInvalidConfig(store) {
 }
 
 /* eslint-disable no-unused-vars */
-function warnOnInvalidConfig(store) {
+function warnOnInvalidConfig() {
   // Nothing yet
 }
 /* eslint-enable no-unused-vars */
@@ -196,10 +214,10 @@ function warnOnInvalidConfig(store) {
  * defaults. @returns {N3.Store} Same store as input argument, but with
  * defaults added.
  */
-function complementConfig(store) {
-  const classes = store.getSubjects(ns.rdf`type`, ns.vdds`Class`);
-  const subclasses = store.getSubjects(ns.rdf`type`, ns.vdds`Subclass`);
-  const properties = store.getSubjects(
+function complementConfig() {
+  const classes = CONFIG.getSubjects(ns.rdf`type`, ns.vdds`Class`);
+  const subclasses = CONFIG.getSubjects(ns.rdf`type`, ns.vdds`Subclass`);
+  const properties = CONFIG.getSubjects(
     ns.rdf`type`,
     ns.vdds`HierarchyProperty`,
   );
@@ -222,8 +240,8 @@ function complementConfig(store) {
    * ```
    */
   [...classes, ...subclasses, ...properties].forEach((subject) => {
-    if (!store.has(subject, ns.vdds`type`))
-      store.addQuad(subject, ns.vdds`type`, subject);
+    if (!CONFIG.has(subject, ns.vdds`type`))
+      CONFIG.addQuad(subject, ns.vdds`type`, subject);
   });
 
   /**
@@ -233,14 +251,12 @@ function complementConfig(store) {
   [...classes, ...subclasses].forEach((subject) => {
     if (
       !(
-        store.has(subject, ns.vdds`property`) ||
-        store.has(subject, ns.vdds`optionalProperty`)
+        CONFIG.has(subject, ns.vdds`property`) ||
+        CONFIG.has(subject, ns.vdds`optionalProperty`)
       )
     )
-      store.addQuad(subject, ns.vdds`property`, ns.vdds`allProperties`);
+      CONFIG.addQuad(subject, ns.vdds`property`, ns.vdds`allProperties`);
   });
-
-  return store;
 }
 
 /**
