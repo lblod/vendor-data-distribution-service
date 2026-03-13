@@ -1,5 +1,6 @@
 import * as mas from '@lblod/mu-auth-sudo';
 import * as env from '../env';
+import * as sap from './sparql-auto-prefix';
 
 const sparqlConnectionHeaders = {
   'mu-call-scope-id': env.MU_SCOPE,
@@ -25,7 +26,7 @@ function connectionOptions(mode) {
 
 export async function querySudo(queryString, mode) {
   return mas.querySudo(
-    queryString,
+    sap.sparqlAutoPrefix(queryString),
     sparqlConnectionHeaders,
     connectionOptions(mode),
   );
@@ -33,7 +34,7 @@ export async function querySudo(queryString, mode) {
 
 export async function updateSudo(queryString, mode) {
   return mas.updateSudo(
-    queryString,
+    sap.sparqlAutoPrefix(queryString),
     sparqlConnectionHeaders,
     connectionOptions(mode),
   );

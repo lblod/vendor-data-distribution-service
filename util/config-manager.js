@@ -431,9 +431,6 @@ export function excludeProperties(config) {
   return CONFIG.getObjects(config, ns.vdds`excludeProperty`);
 }
 
-export function postProcessPrefixes(config) {
-  return CONFIG.getObjects(config, ns.vdds`postProcessPrefixes`)[0];
-}
 export function postProcessDelete(config) {
   return CONFIG.getObjects(config, ns.vdds`postProcessDelete`)[0];
 }

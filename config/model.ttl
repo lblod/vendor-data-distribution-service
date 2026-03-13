@@ -17,6 +17,12 @@
 @prefix am:      <http://lblod.data.gift/vocabularies/automatische-melding/> .
 @prefix meb:     <http://rdf.myexperiment.org/ontologies/base/> .
 
+# For use in the queries
+
+@prefix mu:        <http://mu.semte.ch/vocabularies/core/> .
+@prefix muAccount: <http://mu.semte.ch/vocabularies/account/> .
+@prefix formdata:  <http://lblod.data.gift/vocabularies/besluit/submission/form-data/> .
+
 prov:generated
   #vdds:type prov:generated ; #implied
   rdf:type vdds:HierarchyProperty ;
@@ -47,17 +53,14 @@ meb:Submission
   #vdds:optionalProperty rdf:type ; #unnecessary because of vdds:allProperties
   #optional:
   vdds:trigger """
-    ${subject} a <http://rdf.myexperiment.org/ontologies/base/Submission> .
+    ${subject} a meb:Submission .
   """ ;
   #optional:
   vdds:targetGraphQuery """
-    PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
-    PREFIX muAccount: <http://mu.semte.ch/vocabularies/account/>
-  
     SELECT DISTINCT ?organisationUuid ?vendorUuid
     WHERE {
       GRAPH ?g {
-        ${subject} a <http://rdf.myexperiment.org/ontologies/base/Submission> .
+        ${subject} a meb:Submission .
       }
       FILTER (REGEX(STR(?g), "^http://mu.semte.ch/graphs/organizations/"))
       BIND(STRAFTER(STR(?g), "http://mu.semte.ch/graphs/organizations/") AS ?afterPrefix)
@@ -73,10 +76,6 @@ meb:Submission
 
 am:FormData
   rdf:type vdds:Subclass ;
-  vdds:postProcessPrefixes """
-    PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    PREFIX formdata: <http://lblod.data.gift/vocabularies/besluit/submission/form-data/>
-  """ ;
   vdds:postProcessDelete """
     ${subject}
       ext:sessionStartedAtTime ?sessionStartedAtTime ;

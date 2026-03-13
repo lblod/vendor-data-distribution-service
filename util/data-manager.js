@@ -429,7 +429,6 @@ export async function transferDataToTargets(
  * @returns {undefined} Nothing
  */
 export async function postProcess(subject, config, graph, mode) {
-  const prefixes = cm.postProcessPrefixes(config)?.value || '';
   const [deletePattern, insertPattern, wherePattern] = [
     cm.postProcessDelete(config),
     cm.postProcessInsert(config),
@@ -450,7 +449,6 @@ export async function postProcess(subject, config, graph, mode) {
   if (!deletePattern && !insertPattern) return;
   if (deletePattern && !insertPattern && !wherePattern)
     query = `
-      ${prefixes}
       DELETE DATA {
         GRAPH ${rst.termToString(graph)} {
           ${deletePattern}
@@ -458,7 +456,6 @@ export async function postProcess(subject, config, graph, mode) {
       }`;
   else if (!deletePattern && insertPattern && !wherePattern)
     query = `
-      ${prefixes}
       INSERT DATA {
         GRAPH ${rst.termToString(graph)} {
           ${insertPattern}
@@ -482,7 +479,6 @@ export async function postProcess(subject, config, graph, mode) {
       }`
       : '';
     query = `
-      ${prefixes}
       ${deletePart}
       ${insertPart}
       WHERE {
