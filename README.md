@@ -161,7 +161,7 @@ This configuration is not typical linked data, in that this service will
 automatically assume certain implicit default values for properties that are
 not defined, and will throw an error if crucial properties are missing from the
 configuration. Also, if a type property is missing on an entity, that entity
-will be ignored.
+will be ignored. Make sure to follow the cardinality indication closely.
 
 There are only 3 possible types in the configuration ontology for this service:
 
@@ -178,7 +178,20 @@ just insert data (`INSERT DATA { ... }`) if you only provide an `INSERT`
 pattern. Idem for a `DELETE` pattern. If you supply both an `INSERT` and
 `DELETE` pattern, you also need to provide a `WHERE` pattern. The patterns
 `${subject}` and `${targetgraph}` in the supplied strings are substituted with
-their respective values.
+their respective values. Inserts and deletes are automatically scoped to the
+target graphs, so no need to include a `GRAPH ... { ... }` expression.
+
+**NOTE on the use of prefixes:** any SPARQL pattern or full SPARQL query (like
+`vdds:trigger`, `vdds:targetGraphQuery`, ...) can use the prefixes defined
+globally at the top of the configuration. This service will automatically scan
+every SPARQL pattern for the use of prefixes and include the definition at the
+top of the query. If a SPARQL query already has its own prefixes, they won't be
+included again, so you can shadow the globally defined prefixes per query. This
+mechanism is optimistic: it will not throw errors if prefixes are missing, and
+it might add too many prefixes (which shouldn't cause any harm), because it
+doesn't try to fully parse a SPARQL query. Instead it just uses regular
+expressions to try and find uses of prefixes, and it does this very
+optimistically. (Better safe than sorry.)
 
 Below follows a table for each of these of these types, with all possible
 properties and value.
@@ -206,7 +219,6 @@ optionality and default values:
 | `vdds:trigger`             | 0 - 1       | SPARQL pattern that will be placed directly in an `ASK` query. Can be used to filter subjects. This could be anything: filter on a certain predicate, if a certain other part of the hierarchy exists or has a certain property, ... Pattern `${subject}` is substituted by the URI of the subject under consideration at the moment. |
 | `vdds:targetGraphQuery`    | 0 - 1       | A full SPARQL `SELECT` query that allows to retrieve variables for constructing the (multiple) target graphs. Can be optional if the target graph is static. The pattern `${subject}` is substituted for the URI of the subject. |
 | `vdds:targetGraphTemplate` | 1           | Template string for the target graph URIs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:targetGraphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
-| `vdds:postProcessPrefixes` | 0 - 1       | Provide prefixes as a string, if wanted, for the SPARQL patterns in the following properties. Write them as if they are at the top of the SPARQL query. |
 | `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
 | `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
 | `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
@@ -225,7 +237,6 @@ template, can only be defined on the top most element of the hierarchy.
 | `vdds:property`            | 0 - n       | URIs of the properties on the subject that must be copied to the target graphs that all need to exist. Defaults to `vdds:allProperties`, a special URI that signals that all properties must be copied. |
 | `vdds:excludeProperty`     | 0 - n       | URIs of the properties that must not be copied to the target graphs. This "blacklists" certain properties, on top of the `vdds:property` properties list. |
 | `vdds:optionalProperty`    | 0 - n       | URIs of optional properties that may be copied to the target graphs. |
-| `vdds:postProcessPrefixes` | 0 - 1       | Provide prefixes as a string, if wanted, for the SPARQL patterns in the following properties. Write them as if they are at the top of the SPARQL query. |
 | `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
 | `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
 | `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
