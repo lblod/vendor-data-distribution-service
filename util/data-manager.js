@@ -179,6 +179,7 @@ export async function matchTriggerOnSubject(subject, trigger, mode) {
 export async function hierarchyTop(subjectWithConfig) {
   const { subject, config } = subjectWithConfig;
   const { topConfig, path } = cm.pathTopToConfig(config);
+  const topType = cm.type(topConfig);
   if (path.length > 0) {
     const pathString = configPathToString(path);
     const response = await ss.querySudo(`
@@ -186,17 +187,21 @@ export async function hierarchyTop(subjectWithConfig) {
       WHERE {
         BIND (${rst.termToString(subject)} AS ?leaf)
         ?top ${pathString} ?leaf .
-      } LIMIT 1
+        ?top rdf:type ${rst.termToString(topType)} .
+      }
     `);
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-    if (parsedResults.length > 1)
+    if (parsedResults.length === 1) {
+      const top = parsedResults[0].top;
+      return new SubjectConfig(top, topConfig);
+    } else if (parsedResults.length > 1) {
       throw new Error(
         `There should only be one path between a leaf element and their hierarchy top element. Found these top elements: ${parsedResults.map((r) => r.top.value).join(' \n ')}`,
       );
-    const top = parsedResults[0].top;
-    return new SubjectConfig(top, topConfig);
+    }
+  } else {
+    return subjectWithConfig;
   }
-  return subjectWithConfig;
 }
 
 /**
@@ -238,19 +243,22 @@ export async function hierarchyChildren(hierarchy, mode) {
   const collectedChildren = [];
   for (const { path, config } of childrenConfigs) {
     const pathString = configPathToString(path);
+    const childType = cm.type(config);
     const response = await ss.querySudo(
       `
-      SELECT ?leaf
+      SELECT DISTINCT ?leaf
       WHERE {
         BIND (${rst.termToString(topSubject)} AS ?top)
         ?top ${pathString} ?leaf .
-      } LIMIT 1
+        ?leaf rdf:type ${rst.termToString(childType)} .
+      }
     `,
       mode,
     );
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-    if (parsedResults.length > 0)
-      collectedChildren.push(new SubjectConfig(parsedResults[0].leaf, config));
+    parsedResults.forEach((res) => {
+      collectedChildren.push(new SubjectConfig(res.leaf, config));
+    });
   }
   return collectedChildren;
 }
@@ -293,7 +301,9 @@ export async function targetGraphs(subject, config, mode) {
       return namedNode(graph);
     });
   } else {
-    return cm.targetGraphTemplate(config);
+    const template = cm.targetGraphTemplate(config);
+    if (template) return [template];
+    else return [];
   }
 }
 

@@ -58,7 +58,7 @@ export async function processEventSubjects(subjects) {
   const parentsInHierarchy = [];
   for (const subjectWithConfig of subjectsWithConfig) {
     const parent = await dm.hierarchyTop(subjectWithConfig);
-    parentsInHierarchy.push(parent);
+    if (parent) parentsInHierarchy.push(parent);
   }
 
   // Only process hierarchies for which its trigger is successful

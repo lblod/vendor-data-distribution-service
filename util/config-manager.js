@@ -281,7 +281,9 @@ export function pathTopToConfig(config) {
   let currentConfig = config;
   /*eslint no-constant-condition: ["error", { "checkLoops": false }]*/
   while (true) {
-    const pathProp = CONFIG.getSubjects(ns.rdfs`range`, currentConfig)[0];
+    const pathProp = CONFIG.getSubjects(ns.rdfs`range`, currentConfig).filter(
+      (prop) => !CONFIG.has(prop, ns.vdds`inverse`, literal(true)),
+    )[0];
     if (pathProp) {
       path.push(pathProp);
       currentConfig = domain(pathProp);
@@ -290,14 +292,12 @@ export function pathTopToConfig(config) {
     const inversePathProp = CONFIG.getSubjects(
       ns.rdfs`domain`,
       currentConfig,
-    )[0];
+    ).filter((prop) => CONFIG.has(prop, ns.vdds`inverse`, literal(true)))[0];
     if (inversePathProp) {
-      if (CONFIG.has(inversePathProp, ns.vdds`inverse`, literal(true))) {
-        inversePathProp.inverse = true;
-        path.push(inversePathProp);
-        currentConfig = range(inversePathProp);
-        continue;
-      }
+      inversePathProp.inverse = true;
+      path.push(inversePathProp);
+      currentConfig = range(inversePathProp);
+      continue;
     }
     break;
   }
