@@ -178,7 +178,7 @@ export async function matchTriggerOnSubject(subject, trigger, mode) {
  */
 export async function hierarchyTop(subjectWithConfig) {
   const { subject, config } = subjectWithConfig;
-  const { topConfig, path } = cm.pathTopFromConfig(config);
+  const { topConfig, path } = cm.pathTopToConfig(config);
   if (path.length > 0) {
     const pathString = configPathToString(path);
     const response = await ss.querySudo(`

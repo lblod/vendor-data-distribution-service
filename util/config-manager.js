@@ -276,7 +276,7 @@ function complementConfig() {
  * element in the hierarchy to the given element and `topConfig` with the
  * config representation for the top element.
  */
-export function pathTopFromConfig(config) {
+export function pathTopToConfig(config) {
   const path = [];
   let currentConfig = config;
   /*eslint no-constant-condition: ["error", { "checkLoops": false }]*/
