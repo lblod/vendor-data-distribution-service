@@ -264,44 +264,65 @@ function complementConfig() {
  */
 
 /**
- * Calculates the top most config element in the hierarchy (based on
- * HierarchyProperties with domain and range) and returns it with a path to get
- * from the top config to the given config.
+ * Calculates the top most config elements in the hierarchy (based on
+ * HierarchyProperties with domain and range) and returns them with a path to
+ * get from the top config to the given config.
+ * Multiple parents might be returned in the array, because there might be
+ * config reuse between hierarchies. Ultimately, the trigger query is what
+ * should give a green light for copying.
  *
  * @public
  * @function
  * @param {NameNode} config - Represents the URI to the configuration entry
  * that is part of a hierarchical structure.
- * @returs {Object(path, topConfig)} An object with the `path` from the top
- * element in the hierarchy to the given element and `topConfig` with the
- * config representation for the top element.
+ * @param {Array(NamedNode)} path - OPTIONAL List of HierarchyProperty elements
+ * that represents the path from the current config to the originally given
+ * leaf config. (Leave empty, mostly used during the recursive call.)
+ * @returs {Array(Object(path, topConfig))} List of objects with the `path`
+ * from the top element in the hierarchy to the given element and `topConfig`
+ * with the config representation for the top element.
  */
-export function pathTopToConfig(config) {
-  const path = [];
-  let currentConfig = config;
-  /*eslint no-constant-condition: ["error", { "checkLoops": false }]*/
-  while (true) {
-    const pathProp = CONFIG.getSubjects(ns.rdfs`range`, currentConfig).filter(
-      (prop) => !CONFIG.has(prop, ns.vdds`inverse`, literal(true)),
-    )[0];
-    if (pathProp) {
-      path.push(pathProp);
-      currentConfig = domain(pathProp);
-      continue;
+export function pathsTopToConfig(config, path = []) {
+  let properties,
+    result = [];
+
+  if (CONFIG.has(config, ns.rdf`type`, ns.vdds`Class`))
+    result.push({ path: [], topConfig: config });
+
+  // Find configs with forward relations
+  properties = CONFIG.getSubjects(ns.rdfs`range`, config).filter(
+    (property) => !CONFIG.has(property, ns.vdds`inverse`, literal(true)),
+  );
+  for (const property of properties) {
+    const parentConfig = CONFIG.getObjects(property, ns.rdfs`domain`)[0];
+    const currentPath = [property, ...path];
+    if (CONFIG.has(parentConfig, ns.rdf`type`, ns.vdds`Class`)) {
+      result.push({ path: currentPath, topConfig: parentConfig });
+    } else {
+      const nextResult = pathsTopToConfig(parentConfig, currentPath);
+      result = result.concat(nextResult);
     }
-    const inversePathProp = CONFIG.getSubjects(
-      ns.rdfs`domain`,
-      currentConfig,
-    ).filter((prop) => CONFIG.has(prop, ns.vdds`inverse`, literal(true)))[0];
-    if (inversePathProp) {
-      inversePathProp.inverse = true;
-      path.push(inversePathProp);
-      currentConfig = range(inversePathProp);
-      continue;
-    }
-    break;
   }
-  return { path: path.reverse(), topConfig: currentConfig };
+
+  // Find configs with backward/inverse relations
+  properties = CONFIG.getSubjects(ns.rdfs`domain`, config)
+    .filter((property) => CONFIG.has(property, ns.vdds`inverse`, literal(true)))
+    .map((property) => {
+      property.inverse = true;
+      return property;
+    });
+  for (const property of properties) {
+    const parentConfig = CONFIG.getObjects(property, ns.rdfs`range`)[0];
+    const currentPath = [property, ...path];
+    if (CONFIG.has(parentConfig, ns.rdf`type`, ns.vdds`Class`)) {
+      result.push({ path: currentPath, topConfig: parentConfig });
+    } else {
+      const nextResult = pathsTopToConfig(parentConfig, currentPath);
+      result = result.concat(nextResult);
+    }
+  }
+
+  return result;
 }
 
 // Input: meb:Submission1
@@ -329,7 +350,8 @@ export function pathTopToConfig(config) {
  * @param {NameNode} config - Represents a configuration (does not need to be
  * the top most element in a hierarchy).
  * @param {Array(NameNode)} path - OPTIONAL List of HierarchyProperty elements
- * from the config to precede the paths taken to the children.
+ * from the config to precede the paths taken to the children. (Leave empty,
+ * mostly used during the recursive call.)
  * @returns {Array(Object(path, config))} List of objects that represent the
  * path taken to a child element (in the form of NamedNodes that represent the
  * config element), and the config for that child element. See the comment

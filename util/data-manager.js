@@ -165,7 +165,7 @@ export async function matchTriggerOnSubject(subject, trigger, mode) {
 }
 
 /**
- * Calculates and fetches for a subject its top most element in the hierarchy
+ * Calculates and fetches for a subject its top most elements in the hierarchy
  * from the triplestore.
  *
  * @public
@@ -173,35 +173,36 @@ export async function matchTriggerOnSubject(subject, trigger, mode) {
  * @function
  * @param {SubjectConfig} subjectWithConfig - A subject and its configuration
  * that is part of a hierarchy. (A hierarchy of 1 element is possible too.)
- * @returns {SubjectConfig} The subject and its configuration that are the top
- * elements of a hierarchy.
+ * @returns {Array(SubjectConfig)} A flat list of subject and their
+ * configuration that are the top elements of a hierarchy.
  */
-export async function hierarchyTop(subjectWithConfig) {
+export async function hierarchyTops(subjectWithConfig) {
   const { subject, config } = subjectWithConfig;
-  const { topConfig, path } = cm.pathTopToConfig(config);
-  const topType = cm.type(topConfig);
-  if (path.length > 0) {
-    const pathString = configPathToString(path);
-    const response = await ss.querySudo(`
-      SELECT ?top
-      WHERE {
-        BIND (${rst.termToString(subject)} AS ?leaf)
-        ?top ${pathString} ?leaf .
-        ?top rdf:type ${rst.termToString(topType)} .
-      }
-    `);
-    const parsedResults = sparqlJsonParser.parseJsonResults(response);
-    if (parsedResults.length === 1) {
-      const top = parsedResults[0].top;
-      return new SubjectConfig(top, topConfig);
-    } else if (parsedResults.length > 1) {
-      throw new Error(
-        `There should only be one path between a leaf element and their hierarchy top element. Found these top elements: ${parsedResults.map((r) => r.top.value).join(' \n ')}`,
-      );
+  const parentConfigs = cm.pathsTopToConfig(config);
+  const collectedParents = [];
+
+  for (const { path, topConfig } of parentConfigs) {
+    if (path.length > 0) {
+      const topType = cm.type(topConfig);
+      const pathString = configPathToString(path);
+      const response = await ss.querySudo(`
+        SELECT DISTINCT ?top
+        WHERE {
+          BIND (${rst.termToString(subject)} AS ?leaf)
+          ?top ${pathString} ?leaf .
+          ?top rdf:type ${rst.termToString(topType)} .
+        }
+      `);
+      const parsedResults = sparqlJsonParser.parseJsonResults(response);
+      if (parsedResults.length > 0)
+        parsedResults.forEach((res) => {
+          collectedParents.push(new SubjectConfig(res.top, topConfig));
+        });
+    } else {
+      collectedParents.push(subjectWithConfig);
     }
-  } else {
-    return subjectWithConfig;
   }
+  return collectedParents;
 }
 
 /**
