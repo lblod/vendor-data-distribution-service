@@ -55,7 +55,7 @@ export const ERROR_GRAPH = envvar
   .asUrlString();
 
 export const ERROR_BASE = envvar
-  .get('ERR0R_BASE')
+  .get('ERROR_BASE')
   .default('http://data.lblod.info/errors/')
   .asUrlString();
 
