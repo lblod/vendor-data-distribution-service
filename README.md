@@ -1,10 +1,10 @@
 # vendor-data-distribution-service
 
 Service that copies hierarchical data to target graphs, based on configuration
-that filters subjects on type and a trigger query (SPARQL `ASK` query). Target
-graphs are fixed or calculated based on a general SPARQL `SELECT` query.
-Properties for the subjects that need to be copied can be selected via
-whitelisting, blacklisting, or with optionality.
+that filters subjects on type and an optional trigger query (SPARQL `ASK`
+query). Target graphs are fixed or calculated based on a general SPARQL
+`SELECT` query. For each subject, you can specify which properties to copy by
+whitelists, blacklists, or by marking properties as optional
 
 This service works by listening to delta messages from the `delta-notifier` and
 by copying configurable "pieces of information" (e.g. all data about entities,
@@ -22,7 +22,7 @@ vendor through `mu-authorization`.
 Internally, this service uses a temporary graph to immediately write any
 incoming subjects linked to a unique identifier. If any subject is repeated
 over multiple delta messages, a new identifier is used every time. This
-combination of subject and unique identifier "encodes" the fact that a delta
+combination of subject and unique identifier represents the fact that a delta
 message for that subject has arrived. In this service, we call this an event.
 Later, based on a CRON job or a timer that is set after a delta message, a
 batch of events is processed simultaneously. Subjects can thus appear in that
@@ -255,7 +255,7 @@ the represented subject.
 | `rdf:type`     | 1           | Always needs to be `vdds:HierarchyProperty`. |
 | `rdfs:domain`  | 1           | Domain of the relationship. Use the configuration URI that represents the subject's type. |
 | `rdfs:range`   | 1           | Range of the relationship. Use the configuration URI that represents the subject's type. |
-| `vdds:inverse` | 0 - 1       | Wether this relation is inverted or not. Defaults to being undefined, which is `false`. |
+| `vdds:inverse` | 0 - 1       | Whether this relation is inverted or not. Defaults to being undefined, which is `false`. |
 
 ### Configuration example
 
@@ -266,13 +266,38 @@ here.](https://github.com/lblod/vendor-data-distribution-service/blob/master/con
 ## Environment variables in configuration
 
 It is possible to use environment variables in the configuration. Enclose any
-variable whithin `#{}` and define them as an environment variable in the
+variable within `#{}` and define them as an environment variable in the
 `docker-compose.yml` file. These variable patterns are substituted at startup
-of the service. If a variable is not defined, the service will throw and error
+of the service. If a variable is not defined, the service will throw an error
 and will halt.
 
 **IMPORTANT:** make sure environment variables are correctly set! The service
 prints out its configuration as triples on the command line for inspection.
+
+Example: a subject, in this case a Submission, needs an extra property to
+define a download URL. This depends on the server's hostname and should
+therefore be configured with an environment variable in the
+`docker-compose.override.yml` file:
+
+```yaml
+vendor-data-distribution:
+  environment:
+    HOSTNAME: "http://loket.vlaanderen.be/"
+```
+
+In the configuration, use this variable wherever needed:
+
+```turtle
+meb:Submission
+  rdf:type vdds:Class ;
+  vdds:postProcessInsert """
+    ${subject} nie:url ?link .
+  """ ;
+  vdds:postProcessWhere """
+    ${subject} mu:uuid ?uuid .
+    BIND (CONCAT("#{HOSTNAME}files/", STR(?uuid), "/download") AS ?link)
+  """ .
+```
 
 ## Other environment variables
 
@@ -361,7 +386,7 @@ vendor-data-distribution | grep 'HEALING'`.
 
 ### POST `/heal/configs`
 
-Heal only a specific set of configurations. This can help speed up scenario's
+Heal only a specific set of configurations. This can help speed up scenarios
 where you know that only a specific configuration has changed.
 
 **Body** *OPTIONAL* JSON with the following structure:
