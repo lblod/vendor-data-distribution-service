@@ -61,7 +61,7 @@ app.post('/delta', async function (req, res, next) {
     const changesets = req.body;
     const subjects = hel.getAllUniqueSubjects(changesets);
     await dm.insertSubjectsForLaterProcessing(subjects);
-    timerLock.acquire();
+    await timerLock.acquire();
     if (!runningTimer)
       runningTimer = setTimeout(process, env.PROCESSING_INTERVAL);
   } catch (err) {
@@ -92,12 +92,12 @@ app.post('/process', async function (req, res, next) {
  * for a new processing round if there were any subjects in the batch.
  */
 async function process() {
-  processingLock.acquire();
+  await processingLock.acquire();
   runningTimer = undefined;
   try {
     const result = await del.processBatch();
     handleProcessingResult(result);
-    timerLock.acquire();
+    await timerLock.acquire();
     if (result?.count)
       runningTimer = setTimeout(process, env.PROCESSING_INTERVAL);
   } catch (err) {
