@@ -34,7 +34,7 @@ export async function prepareAndStart() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Lenght': Buffer.byteLength(deltaMessage),
+      'Content-Length': Buffer.byteLength(deltaMessage),
     },
   });
   req.write(deltaMessage);
