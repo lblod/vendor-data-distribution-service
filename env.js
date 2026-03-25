@@ -82,7 +82,7 @@ const PREFIXES = {
 };
 
 const BASE = {
-  error: 'http://data.lblod.info/errors/',
+  error: ERROR_BASE,
 };
 
 export const NAMESPACES = (() => {
