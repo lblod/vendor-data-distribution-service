@@ -1,10 +1,116 @@
 import * as fs from 'fs/promises';
 import * as rst from 'rdf-string-ttl';
 import * as sjp from 'sparqljson-parse';
-import * as mas from '@lblod/mu-auth-sudo';
+import * as ss from '../util/sparql-sudo';
 import * as env from '../env';
+import * as hel from '../util/helpers';
 import * as N3 from 'n3';
+import * as sts from '../util/storeToTriplestore';
+import * as msg from './DeltaMessages';
+import * as http from 'node:http';
+import { Buffer } from 'node:buffer';
 const { namedNode } = N3.DataFactory;
+
+export async function prepareAndStart() {
+  const parser = new N3.Parser({ format: 'application/trig' });
+
+  const testData = (await fs.readFile('./test/TestData.trig')).toString();
+  const testDataStore = new N3.Store();
+  const testDataQuads = parser.parse(testData);
+  testDataStore.addQuads(testDataQuads);
+
+  const vendorData = (await fs.readFile('./test/VendorData.trig')).toString();
+  const vendorDataStore = new N3.Store();
+  const vendorDataQuads = parser.parse(vendorData);
+  vendorDataStore.addQuads(vendorDataQuads);
+
+  await sts.insertData(testDataStore);
+  await sts.insertData(vendorDataStore);
+
+  // const deltaMessage = JSON.stringify(msg.changesetsSubmission);
+  const deltaMessage = JSON.stringify(msg.changesetsPhysicalFile);
+
+  const req = http.request('http://localhost/delta', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(deltaMessage),
+    },
+  });
+  req.write(deltaMessage);
+  req.end();
+}
+
+export async function assert() {
+  const vendorGraph = namedNode(
+    'http://mu.semte.ch/graphs/vendors/aaaa-bbbb-cccc-1111-2222-3333/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a',
+  );
+  const allVendorData = await sts.getData(vendorGraph);
+
+  const parser = new N3.Parser({ format: 'application/trig' });
+  const resultData = (await fs.readFile('./test/ResultData.trig')).toString();
+  const resultDataStore = new N3.Store();
+  const resultDataQuads = parser.parse(resultData);
+  resultDataStore.addQuads(resultDataQuads);
+
+  const resultDataStoreWOGraphs = new N3.Store();
+  resultDataStore.forEach((q) =>
+    resultDataStoreWOGraphs.addQuad(q.subject, q.predicate, q.object),
+  );
+  const allVendorDataWOGraphs = new N3.Store();
+  allVendorData.forEach((q) =>
+    allVendorDataWOGraphs.addQuad(q.subject, q.predicate, q.object),
+  );
+
+  const { left, right } = hel.compareStores(
+    resultDataStoreWOGraphs,
+    allVendorDataWOGraphs,
+  );
+
+  if (left.size === 0 && right.size === 0) {
+    console.log('Test passed');
+    return true;
+  } else {
+    console.log(
+      `Test failed with a difference of ${left.size} and ${right.size} number of triples in the expected data and vendor graph data respectively.`,
+    );
+    return false;
+  }
+}
+
+export async function cleanUp() {
+  const parser = new N3.Parser({ format: 'application/trig' });
+
+  const testData = (await fs.readFile('./test/TestData.trig')).toString();
+  const testDataStore = new N3.Store();
+  const testDataQuads = parser.parse(testData);
+  testDataStore.addQuads(testDataQuads);
+
+  const vendorData = (await fs.readFile('./test/VendorData.trig')).toString();
+  const vendorDataStore = new N3.Store();
+  const vendorDataQuads = parser.parse(vendorData);
+  vendorDataStore.addQuads(vendorDataQuads);
+
+  await sts.deleteData(testDataStore);
+  await sts.deleteData(vendorDataStore);
+
+  await ss.updateSudo(`
+    DELETE {
+      GRAPH <http://mu.semte.ch/graphs/vendors/aaaa-bbbb-cccc-1111-2222-3333/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a> {
+        ?s ?p ?o .
+      }
+    }
+    WHERE {
+      GRAPH <http://mu.semte.ch/graphs/vendors/aaaa-bbbb-cccc-1111-2222-3333/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a> {
+        ?s ?p ?o .
+      }
+    }
+  `);
+}
+
+/******************************************************************************
+ * Deprecate all below this line
+ *****************************************************************************/
 
 /*
  * **TEST ONLY** Clears the data from the graphs used for testing..
@@ -21,7 +127,7 @@ export async function clearTestData(vendorInfo) {
   const vendorGraph = namedNode(
     `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`,
   );
-  await mas.updateSudo(`
+  await ss.updateSudo(`
     DELETE {
       GRAPH <http://mu.semte.ch/graphs/vendorsTest> {
         ?s ?p ?o .
@@ -32,7 +138,7 @@ export async function clearTestData(vendorInfo) {
         ?s ?p ?o .
       }
     }`);
-  await mas.updateSudo(`
+  await ss.updateSudo(`
     ${env.SPARQL_PREFIXES}
     DELETE {
       GRAPH ${rst.termToString(vendorGraph)} {
@@ -90,7 +196,7 @@ export async function updateDataInTestGraph(deleteColl, insertColl) {
       }
     }
     WHERE {}`;
-  await mas.updateSudo(updateQuery);
+  await ss.updateSudo(updateQuery);
 }
 
 /*
@@ -113,7 +219,7 @@ export async function assertCorrectTestDeltas(vendorInfo) {
   const vendorGraph = namedNode(
     `http://mu.semte.ch/graphs/vendors/${vendorInfo.vendor.id}/${vendorInfo.organisation.id}`,
   );
-  const response = await mas.querySudo(`
+  const response = await ss.querySudo(`
     ${env.SPARQL_PREFIXES}
     CONSTRUCT {
       ?s ?p ?o .
@@ -139,33 +245,7 @@ export async function assertCorrectTestDeltas(vendorInfo) {
   parser.parse(testResult).forEach((t) => testResultStore.addQuad(t));
 
   // Compare stores, nothing should be different
-  compareStores(toCheckStore, testResultStore);
+  hel.compareStores(toCheckStore, testResultStore);
 
   return toCheckStore.size === 0 && testResultStore.size === 0;
-}
-
-/*
- * Compare two stores. Identical triples are **destructively** removed from
- * both stores. The result is the original store with the triples that are
- * removed or updated, and the result store with only triples that are inserted
- * or updated.
- *
- * @function
- * @param {N3.Store} originalStore - The store with initial, already known
- * data.
- * @param {N3.Store} resultStore - The store that has been modified from the
- * original store.
- * @returns {{ toRemoveStore: N3.Store, toInsertStore: N3.Store }} An object
- * with two stores, one with data that is removed or updated and one with
- * inserted or updated data.
- */
-export function compareStores(originalStore, resultStore) {
-  // Make copy of second store, because if we already start removing things, we
-  // will never be able to remove all intersecting triples.
-  const resultStoreCopy = new N3.Store();
-  resultStore.forEach((q) => resultStoreCopy.addQuad(q));
-
-  originalStore.forEach((q) => resultStore.removeQuad(q));
-  resultStoreCopy.forEach((q) => originalStore.removeQuad(q));
-  return { toRemoveStore: originalStore, toInsertStore: resultStore };
 }

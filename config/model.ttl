@@ -1,0 +1,114 @@
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix vdds:    <https://github.com/lblod/vendor-data-distribution-service#> .
+@prefix prov:    <http://www.w3.org/ns/prov#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct:     <http://purl.org/dc/terms/> .
+@prefix core:    <http://mu.semte.ch/vocabularies/core/> .
+@prefix sd:      <http://data.lblod.info/submission-documents/> .
+@prefix fd:      <http://data.lblod.info/form-data/> .
+@prefix nfo:     <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#> .
+@prefix nie:     <http://www.semanticdesktop.org/ontologies/2007/01/19/nie#> .
+@prefix nmo:     <http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#> .
+@prefix ext:     <http://mu.semte.ch/vocabularies/ext/> .
+@prefix pav:     <http://purl.org/pav/> .
+@prefix adms:    <http://www.w3.org/ns/adms#> .
+@prefix dbpedia: <http://dbpedia.org/ontology/> .
+@prefix am:      <http://lblod.data.gift/vocabularies/automatische-melding/> .
+@prefix meb:     <http://rdf.myexperiment.org/ontologies/base/> .
+
+# For use in the queries
+
+@prefix mu:        <http://mu.semte.ch/vocabularies/core/> .
+@prefix muAccount: <http://mu.semte.ch/vocabularies/account/> .
+@prefix formdata:  <http://lblod.data.gift/vocabularies/besluit/submission/form-data/> .
+
+prov:generated
+  #vdds:type prov:generated ; #implied
+  rdf:type vdds:HierarchyProperty ;
+  rdfs:domain meb:Submission ;
+  rdfs:range am:FormData .
+
+dct:subject
+  #vdds:type dct:subject ; #implied
+  rdf:type vdds:HierarchyProperty ;
+  rdfs:domain meb:Submission ;
+  rdfs:range ext:SubmissionDocument .
+
+prov:hadPrimarySource
+  rdf:type vdds:HierarchyProperty ;
+  rdfs:domain am:FormData ;
+  rdfs:range <LogicalFile> .
+
+nie:dataSource
+  rdf:type vdds:HierarchyProperty ;
+  rdfs:domain <PhysicalFile> ;
+  rdfs:range <LogicalFile> ;
+  vdds:inverse true .
+
+meb:Submission
+  rdf:type vdds:Class ;
+  #vdds:type <http://rdf.myexperiment.org/ontologies/base/Submission> ; #implied
+  #vdds:property vdds:allProperties ; #default
+  #vdds:optionalProperty rdf:type ; #unnecessary because of vdds:allProperties
+  #optional:
+  vdds:trigger """
+    ${subject} a meb:Submission .
+  """ ;
+  #optional:
+  vdds:targetGraphQuery """
+    SELECT DISTINCT ?organisationUuid ?vendorUuid
+    WHERE {
+      GRAPH ?g {
+        ${subject} a meb:Submission .
+      }
+      FILTER (REGEX(STR(?g), "^http://mu.semte.ch/graphs/organizations/"))
+      BIND(STRAFTER(STR(?g), "http://mu.semte.ch/graphs/organizations/") AS ?afterPrefix)
+      BIND(STRBEFORE(?afterPrefix, "/LoketLB-databankEredienstenGebruiker") AS ?organisationUuid)
+      ?vendor
+        muAccount:canActOnBehalfOf ?organisation ;
+        mu:uuid ?vendorUuid .
+      ?organisation
+        mu:uuid ?organisationUuid .
+    }
+  """ ;
+  vdds:targetGraphTemplate "http://mu.semte.ch/graphs/vendors/${vendorUuid}/${organisationUuid}" .
+
+am:FormData
+  rdf:type vdds:Subclass ;
+  vdds:postProcessDelete """
+    ${subject}
+      ext:sessionStartedAtTime ?sessionStartedAtTime ;
+      ext:decisionType ?decisionType ;
+      ext:taxType ?taxType ;
+      ext:taxRateAmount ?taxRateAmount ;
+      ext:regulationType ?regulationType .
+  """ ;
+  vdds:postProcessInsert """
+    ${subject}
+      formdata:sessionStartedAtTime ?sessionStartedAtTime ;
+      formdata:submissionType ?decisionType ;
+      formdata:taxType ?taxType ;
+      formdata:taxRateAmount ?taxRateAmount ;
+      formdata:regulationType ?regulationType .
+  """ ;
+  vdds:postProcessWhere """
+    OPTIONAL { ${subject} ext:sessionStartedAtTime ?sessionStartedAtTime . }
+    OPTIONAL { ${subject} ext:decisionType ?decisionType . }
+    OPTIONAL { ${subject} ext:taxType ?taxType . }
+    OPTIONAL { ${subject} ext:taxRateAmount ?taxRateAmount . }
+    OPTIONAL { ${subject} ext:regulationType ?regulationType . }
+  """ .
+
+<LogicalFile>
+  rdf:type vdds:Subclass ;
+  vdds:type nfo:FileDataObject ;
+  vdds:excludeProperty dct:modified .
+
+<PhysicalFile>
+  rdf:type vdds:Subclass ;
+  vdds:type nfo:FileDataObject .
+
+ext:SubmissionDocument
+  rdf:type vdds:Subclass .
+

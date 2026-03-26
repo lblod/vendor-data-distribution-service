@@ -1,0 +1,56 @@
+@prefix                 prov: <http://www.w3.org/ns/prov#> .
+@prefix                  xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix                  rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix                  dct: <http://purl.org/dc/terms/> .
+@prefix                 core: <http://mu.semte.ch/vocabularies/core/> .
+@prefix submission-documents: <http://data.lblod.info/submission-documents/> .
+@prefix            form-data: <http://data.lblod.info/form-data/> .
+@prefix                  nfo: <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#> .
+@prefix                  nie: <http://www.semanticdesktop.org/ontologies/2007/01/19/nie#> .
+@prefix                  nmo: <http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#> .
+@prefix                  ext: <http://mu.semte.ch/vocabularies/ext/> .
+@prefix                  pav: <http://purl.org/pav/> .
+@prefix                 adms: <http://www.w3.org/ns/adms#> .
+@prefix              dbpedia: <http://dbpedia.org/ontology/> .
+
+<http://mu.semte.ch/graphs/organizations/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a/LoketLB-databankEredienstenGebruiker> {
+  form-data:a96e79a0-e5f2-11ee-b0f6-134727f6f792
+      a <http://lblod.data.gift/vocabularies/automatische-melding/FormData> ;
+      dct:created "2024-03-19T13:14:26.941Z"^^xsd:dateTime ;
+      dct:modified "2024-03-19T13:14:47.722Z"^^xsd:dateTime ;
+      prov:hadPrimarySource <http://data.lblod.info/files/d3cc3bc4-085d-4394-8f06-390c06a1f381> .
+
+  submission-documents:65F98FB2049CAEA56A94ACD4
+      a ext:SubmissionDocument ;
+      core:uuid "65F98FB2049CAEA56A94ACD4" ;
+      dct:source <share://semantic-forms/20240227114037-forms.ttl> ,
+                 <share://submissions/9da3ad21-e5f2-11ee-95f7-0b26ff378834.ttl> ,
+                 <share://submissions/a8fe0491-e5f2-11ee-af61-1f38860d7b3b.ttl> ,
+                 <share://submissions/a90dbc01-e5f2-11ee-af61-1f38860d7b3b.ttl> ,
+                 <share://submissions/a95c7841-e5f2-11ee-af61-1f38860d7b3b.ttl> .
+
+  <http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5>
+      a <http://rdf.myexperiment.org/ontologies/base/Submission> ;
+      core:uuid "65F98FB2049CAEA56A94ACD5" ;
+      dct:created "2024-03-19T13:14:26.941Z"^^xsd:dateTime ;
+      dct:modified "2024-03-19T13:14:47.722Z"^^xsd:dateTime ;
+      dct:subject submission-documents:65F98FB2049CAEA56A94ACD4 ;
+      pav:createdBy <http://data.lblod.info/id/bestuurseenheden/28346950e285b8b816133fece5ac9408097c3f190c7f32573cf0c640d6c34b1a> ;
+      nmo:sentDate "2024-03-19T13:14:49.685Z"^^xsd:dateTime ;
+      adms:status <http://lblod.data.gift/concepts/9bd8d86d-bb10-4456-a84e-91e9507c374c> ;
+      prov:generated form-data:a96e79a0-e5f2-11ee-b0f6-134727f6f792 .
+
+  <http://data.lblod.info/files/d3cc3bc4-085d-4394-8f06-390c06a1f381>
+      a nfo:FileDataObject ;
+      dct:created "2024-03-19T13:14:26.941Z"^^xsd:dateTime ;
+      dct:modified "2024-03-19T13:14:47.722Z"^^xsd:dateTime ;
+      nfo:fileName "Test.pdf" ;
+      dct:format "application/pdf" ;
+      nfo:fileSize 1234 ;
+      dbpedia:fileExtension "pdf" .
+
+  <share://submissions/a95c7841-e5f2-11ee-af61-1f38860d7b3b.ttl>
+      a nfo:FileDataObject ;
+      dct:created "2024-03-19T13:14:48.132Z"^^xsd:dateTime ;
+      nie:dataSource <http://data.lblod.info/files/d3cc3bc4-085d-4394-8f06-390c06a1f381> .
+}

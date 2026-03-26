@@ -27,6 +27,8 @@ export const PROCESSING_INTERVAL_SIZE = envvar
   .default(100)
   .asIntPositive();
 
+export const BATCH_SIZE = envvar.get('BATCH_SIZE').default('100').asInt();
+
 export const CLEANUP_CRON = envvar
   .get('CLEANUP_CRON')
   .default('30 * * * *')
@@ -53,7 +55,7 @@ export const ERROR_GRAPH = envvar
   .asUrlString();
 
 export const ERROR_BASE = envvar
-  .get('ERR0R_BASE')
+  .get('ERROR_BASE')
   .default('http://data.lblod.info/errors/')
   .asUrlString();
 
@@ -64,6 +66,7 @@ export const MU_SCOPE = envvar
 
 const PREFIXES = {
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
   xsd: 'http://www.w3.org/2001/XMLSchema#',
   mu: 'http://mu.semte.ch/vocabularies/core/',
   foaf: 'http://xmlns.com/foaf/0.1/',
@@ -74,10 +77,12 @@ const PREFIXES = {
   session: 'http://mu.semte.ch/vocabularies/session/',
   oslc: 'http://open-services.net/ns/core#',
   dct: 'http://purl.org/dc/terms/',
+  schema: 'http://schema.org/',
+  vdds: 'https://github.com/lblod/vendor-data-distribution-service#',
 };
 
 const BASE = {
-  error: 'http://data.lblod.info/errors/',
+  error: ERROR_BASE,
 };
 
 export const NAMESPACES = (() => {
