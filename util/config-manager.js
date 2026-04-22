@@ -197,11 +197,9 @@ function errorOnInvalidConfig() {
   });
 }
 
-/* eslint-disable no-unused-vars */
 function warnOnInvalidConfig() {
   // Nothing yet
 }
-/* eslint-enable no-unused-vars */
 
 /**
  * Enrich the config with defaults that the rest of the service can trust on.
