@@ -347,7 +347,7 @@ export async function transferDataToTargets(
     const targetData = await sts.getDataForSubject(
       subject,
       graph,
-      excludeProperties,
+      excludeProperties, // So we don't actually clean too much
       mode,
     );
     targetStore.addQuads([...targetData]);
