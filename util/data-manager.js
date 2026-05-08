@@ -347,7 +347,7 @@ export async function transferDataToTargets(
     const targetData = await sts.getDataForSubject(
       subject,
       graph,
-      undefined,
+      excludeProperties,
       mode,
     );
     targetStore.addQuads([...targetData]);
