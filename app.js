@@ -141,7 +141,7 @@ app.post('/heal/configs', async function (req, res, next) {
     const onlyConfigs =
       req.body?.configs?.constructor?.name === 'Array' ? req.body.configs : [];
     console.log(`Will start healing with filter [${onlyConfigs.join(', ')}].`);
-    await hea.healConfigs(onlyConfigs);
+    await hea.healConfigs(onlyConfigs.map(namedNode));
   } catch (err) {
     next(err);
   }
