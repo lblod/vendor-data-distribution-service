@@ -265,10 +265,9 @@ export async function hierarchyChildren(hierarchy, mode) {
 }
 
 /**
- * For a subject and a configuration, execute the targetGraphQuery and
- * substitute the recieved variables with their values in the
- * targetGraphTemplate. This results in possibly multiple target graphs, which
- * are all returned.
+ * For a subject and a configuration, execute the graphQuery and substitute the
+ * recieved variables with their values in the targetGraphTemplate. This
+ * results in possibly multiple target graphs, which are all returned.
  *
  * @public
  * @async
@@ -283,7 +282,7 @@ export async function hierarchyChildren(hierarchy, mode) {
  * calculated target graphs.
  */
 export async function targetGraphs(subject, config, mode) {
-  const targetQuery = cm.targetGraphQuery(config);
+  const targetQuery = cm.graphQuery(config);
   if (targetQuery) {
     const substitutedQuery = targetQuery.value.replaceAll(
       '${subject}',

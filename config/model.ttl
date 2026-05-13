@@ -56,7 +56,7 @@ meb:Submission
     ${subject} a meb:Submission .
   """ ;
   #optional:
-  vdds:targetGraphQuery """
+  vdds:graphQuery """
     SELECT DISTINCT ?organisationUuid ?vendorUuid
     WHERE {
       GRAPH ?g {
