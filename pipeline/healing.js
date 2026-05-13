@@ -110,11 +110,13 @@ export async function healConfigs(configs = []) {
       // Target graph for each hierarchy and move parent and children to target
       for (const hierarchy of triggerHappyHierarchies) {
         const { topSubject, topConfig } = hierarchy;
-        const targetGraphs = await dm.targetGraphs(
+        const sourceAndTargetGraphs = await dm.sourceAndTargetGraphs(
           topSubject,
           topConfig,
           'healing',
         );
+
+        const { sourceGraphs, targetGraphs } = sourceAndTargetGraphs;
 
         if (!targetGraphs.length) {
           console.log(
@@ -131,6 +133,7 @@ export async function healConfigs(configs = []) {
           topSubject,
           topConfig,
           targetGraphs,
+          sourceGraphs,
           'healing',
         );
         for (const { subject, config } of hierarchy.children)
@@ -138,14 +141,27 @@ export async function healConfigs(configs = []) {
             subject,
             config,
             targetGraphs,
+            sourceGraphs,
             'healing',
           );
 
         // Perform post processing
         for (const graph of targetGraphs) {
-          await dm.postProcess(topSubject, topConfig, graph, 'healing');
+          await dm.postProcess(
+            topSubject,
+            topConfig,
+            graph,
+            sourceGraphs,
+            'healing',
+          );
           for (const { subject, config } of hierarchy.children)
-            await dm.postProcess(subject, config, graph, 'healing');
+            await dm.postProcess(
+              subject,
+              config,
+              graph,
+              sourceGraphs,
+              'healing',
+            );
         }
       }
     }

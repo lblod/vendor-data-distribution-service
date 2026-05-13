@@ -264,10 +264,18 @@ export async function hierarchyChildren(hierarchy, mode) {
   return collectedChildren;
 }
 
+export class SourceAndTargetGraphs {
+  constructor(sourceGraphs, targetGraphs) {
+    this.sourceGraphs = sourceGraphs;
+    this.targetGraphs = targetGraphs;
+  }
+}
+
 /**
  * For a subject and a configuration, execute the graphQuery and substitute the
- * recieved variables with their values in the targetGraphTemplate. This
- * results in possibly multiple target graphs, which are all returned.
+ * recieved variables with their values in the targetGraphTemplate and the
+ * sourceGraphTemplate. This results in possibly multiple target and source
+ * graphs, which are all returned.
  *
  * @public
  * @async
@@ -278,32 +286,54 @@ export async function hierarchyChildren(hierarchy, mode) {
  * subject.
  * @param {String} mode - Optional. Used to differentiate between normal
  * operations ('copy') and healing operations ('healing').
- * @returns {Array(NamedNode)} A collection with NamedNodes representing the
- * calculated target graphs.
+ * @returns {SourceAndTargetGraphs} An instance of SourceAndTargetGraphs with
+ * properties `sourceGraphs` and `targetGraphs` with collections of NamedNodes
+ * representing the calculated source and target graphs respectively.
  */
-export async function targetGraphs(subject, config, mode) {
+export async function sourceAndTargetGraphs(subject, config, mode) {
   const targetQuery = cm.graphQuery(config);
   if (targetQuery) {
     const substitutedQuery = targetQuery.value.replaceAll(
       '${subject}',
       rst.termToString(subject),
     );
-    const targetGraphTemplateStr = cm.targetGraphTemplate(config).value;
     const response = await ss.querySudo(substitutedQuery, mode);
     const vars = response.head.vars;
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-    return parsedResults.map((res) => {
-      let graph = targetGraphTemplateStr;
+    let targetGraphs,
+      sourceGraphs = [];
+
+    const targetGraphTemplateStr = cm.targetGraphTemplate(config).value;
+    targetGraphs = parsedResults.map((res) => {
+      let targetGraph = targetGraphTemplateStr;
       vars.forEach((varname) => {
         const regex = new RegExp('\\${' + varname + '}', 'g');
-        graph = graph.replaceAll(regex, res[varname].value);
+        targetGraph = targetGraph.replaceAll(regex, res[varname].value);
       });
-      return namedNode(graph);
+      return namedNode(targetGraph);
     });
+
+    const sourceGraphTemplateStr = cm.sourceGraphTemplate(config)?.value;
+    if (sourceGraphTemplateStr) {
+      sourceGraphs = parsedResults.map((res) => {
+        let sourceGraph = sourceGraphTemplateStr;
+        vars.forEach((varname) => {
+          const regex = new RegExp('\\${' + varname + '}', 'g');
+          sourceGraph = sourceGraph.replaceAll(regex, res[varname].value);
+        });
+        return namedNode(sourceGraph);
+      });
+    }
+
+    return new SourceAndTargetGraphs(sourceGraphs, targetGraphs);
   } else {
-    const template = cm.targetGraphTemplate(config);
-    if (template) return [template];
-    else return [];
+    let targetGraphs = [],
+      sourceGraphs = [];
+    const targetGraphTemplate = cm.targetGraphTemplate(config);
+    if (targetGraphTemplate) targetGraphs = [targetGraphTemplate];
+    const sourceGraphTemplate = cm.sourceGraphTemplate(config);
+    if (sourceGraphTemplate) sourceGraphs = [sourceGraphTemplate];
+    return new SourceAndTargetGraphs(sourceGraphs, targetGraphs);
   }
 }
 
@@ -321,6 +351,10 @@ export async function targetGraphs(subject, config, mode) {
  * subject.
  * @param {Array(Literal)} targetGraphs - List of graphs to which to copy data
  * about this subject to, the target graphs.
+ * @param {Array(Literal)} sourceGraphs - List of graphs from which to copy
+ * data about this subject, the source graphs. This can be left undefined or
+ * [undefined] to allow copying from all graphs in the triplestore, basically
+ * from the whole triplestore without graph restrictions.
  * @param {String} mode - Optional. Used to differentiate between normal
  * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing.
@@ -329,8 +363,12 @@ export async function transferDataToTargets(
   subject,
   config,
   targetGraphs,
+  sourceGraphs,
   mode,
 ) {
+  // Hack: if no sourceGraphs, then use `undefined` as a fallback to allow
+  // fetching from all graphs.
+  if (sourceGraphs?.length < 1) sourceGraphs = [undefined];
   const properties = cm.properties(config);
   const optionalProperties = cm.optionalProperties(config);
   const excludeProperties = cm.excludeProperties(config);
@@ -341,42 +379,45 @@ export async function transferDataToTargets(
   // NOTE: do not alter the store after its initial creation!
   const sourceStore = new N3.Store([], { entityIndex });
 
-  // Fetch data that is not in the target graph
-  if (properties === undefined) {
-    // All properties
-    const sourceData = await sts.getDataForSubject(
-      subject,
-      undefined,
-      excludeProperties,
-      mode,
-    );
-    sourceStore.addQuads([...sourceData]);
-  } else {
-    // Specific mandatory properties
-    if (properties?.length > 0) {
-      const leftOverProperties = properties.filter((prop) => {
-        return !excludeProperties.some((ex) => ex.value === prop.value);
-      });
-      const sourceData = await sts.getDataForSubjectMandatoryProperties(
+  // Fetch data that about subjects from all graphs, or the source graphs if
+  // they are given
+  for (const sourceGraph of sourceGraphs) {
+    if (properties === undefined) {
+      // All properties
+      const sourceData = await sts.getDataForSubject(
         subject,
-        undefined,
-        leftOverProperties,
+        sourceGraph,
+        excludeProperties,
         mode,
       );
       sourceStore.addQuads([...sourceData]);
-    }
-    // Specific optional properties
-    if (optionalProperties.length > 0) {
-      const leftOverProperties = optionalProperties.filter((prop) => {
-        return !excludeProperties.some((ex) => ex.value === prop.value);
-      });
-      const sourceData = await sts.getDataForSubjectOptionalProperties(
-        subject,
-        undefined,
-        leftOverProperties,
-        mode,
-      );
-      sourceStore.addQuads([...sourceData]);
+    } else {
+      // Specific mandatory properties
+      if (properties?.length > 0) {
+        const leftOverProperties = properties.filter((prop) => {
+          return !excludeProperties.some((ex) => ex.value === prop.value);
+        });
+        const sourceData = await sts.getDataForSubjectMandatoryProperties(
+          subject,
+          sourceGraph,
+          leftOverProperties,
+          mode,
+        );
+        sourceStore.addQuads([...sourceData]);
+      }
+      // Specific optional properties
+      if (optionalProperties.length > 0) {
+        const leftOverProperties = optionalProperties.filter((prop) => {
+          return !excludeProperties.some((ex) => ex.value === prop.value);
+        });
+        const sourceData = await sts.getDataForSubjectOptionalProperties(
+          subject,
+          sourceGraph,
+          leftOverProperties,
+          mode,
+        );
+        sourceStore.addQuads([...sourceData]);
+      }
     }
   }
   // Remove data from the temp graph.
@@ -384,7 +425,7 @@ export async function transferDataToTargets(
     .getQuads(undefined, undefined, undefined, namedNode(env.TEMP_GRAPH))
     .forEach((quad) => sourceStore.removeQuad(quad));
 
-  for (const graph of targetGraphs) {
+  for (const targetGraph of targetGraphs) {
     const targetStore = new N3.Store([], { entityIndex });
     const sourceStoreCopy = new N3.Store([], { entityIndex });
     // Make a copy of the sourceStore, because we don't want to change the
@@ -397,7 +438,7 @@ export async function transferDataToTargets(
     // data.
     const targetData = await sts.getDataForSubject(
       subject,
-      graph,
+      targetGraph,
       undefined,
       mode,
     );
@@ -422,8 +463,8 @@ export async function transferDataToTargets(
       targetStoreWithoutGraphs,
     );
 
-    await sts.deleteData(right, graph, mode);
-    await sts.insertData(left, graph, mode);
+    await sts.deleteData(right, targetGraph, mode);
+    await sts.insertData(left, targetGraph, mode);
   }
 }
 
@@ -443,11 +484,14 @@ export async function transferDataToTargets(
  * @param {NamedNode} subject - Subject to perform post processing on.
  * @param {Object} config - Configuration object for that subject.
  * @param {NamedNode} graph - Target graph in which to perform the processing.
+ * @param {Array(NamedNode)} sourceGraphs - Collection of NamedNodes
+ * representing possible source graphs from which to select data. Leave
+ * undefined or [undefined] to allow selecting from the whole triplestore.
  * @param {String} mode - Optional. Used to differentiate between normal
  * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing
  */
-export async function postProcess(subject, config, graph, mode) {
+export async function postProcess(subject, config, graph, sourceGraphs, mode) {
   const [deletePattern, insertPattern, wherePattern] = [
     cm.postProcessDelete(config),
     cm.postProcessInsert(config),
@@ -497,12 +541,28 @@ export async function postProcess(subject, config, graph, mode) {
         }
       }`
       : '';
-    query = `
-      ${deletePart}
-      ${insertPart}
-      WHERE {
-        ${wherePattern}
-      }`;
+
+    // If sourceGraphs have been given, only select from there, otherwise
+    // select from the whole triplestore.
+    if (sourceGraphs?.length > 0 && sourceGraphs[0] !== undefined) {
+      const graphValues = sourceGraphs.map(rst.termToString).join('\n');
+      query = `
+        ${deletePart}
+        ${insertPart}
+        WHERE {
+          VALUES ?g { ${graphValues} }
+          GRAPH ?g {
+            ${wherePattern}
+          }
+        }`;
+    } else {
+      query = `
+        ${deletePart}
+        ${insertPart}
+        WHERE {
+          ${wherePattern}
+        }`;
+    }
   }
 
   return ss.updateSudo(query, mode);

@@ -149,13 +149,22 @@ function errorOnInvalidConfig() {
   [...classes]
     .filter((subject) => !CONFIG.has(subject, ns.vdds`graphQuery`))
     .forEach((subject) => {
-      const templateStr = CONFIG.getObjects(
+      const targetTemplateStr = CONFIG.getObjects(
         subject,
         ns.vdds`targetGraphTemplate`,
       )[0]?.value;
-      if (templateStr && templateStr.match(/\${\w+}/)?.length > 0) {
+      if (targetTemplateStr && targetTemplateStr.match(/\${\w+}/)?.length > 0) {
         throw new Error(
           `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`graphQuery`)}, but uses variables in its ${rst.termToString(ns.vdds`targetGraphTemplate`)}.`,
+        );
+      }
+      const sourceTemplateStr = CONFIG.getObjects(
+        subject,
+        ns.vdds`sourceGraphTemplate`,
+      )[0]?.value;
+      if (sourceTemplateStr && sourceTemplateStr.match(/\${\w+}/)?.length > 0) {
+        throw new Error(
+          `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`graphQuery`)}, but uses variables in its ${rst.termToString(ns.vdds`sourceGraphTemplate`)}.`,
         );
       }
     });
@@ -427,6 +436,10 @@ export function trigger(config) {
 
 export function graphQuery(config) {
   return CONFIG.getObjects(config, ns.vdds`graphQuery`)[0];
+}
+
+export function sourceGraphTemplate(config) {
+  return CONFIG.getObjects(config, ns.vdds`sourceGraphTemplate`)[0];
 }
 
 export function targetGraphTemplate(config) {

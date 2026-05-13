@@ -75,7 +75,11 @@ export async function processEventSubjects(subjects) {
   // Target graph for each hierarchy and move parent and children to target
   for (const hierarchy of triggerHappyHierarchies) {
     const { topSubject, topConfig } = hierarchy;
-    const targetGraphs = await dm.targetGraphs(topSubject, topConfig);
+    const sourceAndTargetGraphs = await dm.sourceAndTargetGraphs(
+      topSubject,
+      topConfig,
+    );
+    const { sourceGraphs, targetGraphs } = sourceAndTargetGraphs;
 
     if (!targetGraphs.length) {
       console.log(
@@ -88,15 +92,25 @@ export async function processEventSubjects(subjects) {
     hierarchy.children = await dm.hierarchyChildren(hierarchy);
 
     // Copy entire hierarchy to the target graphs
-    await dm.transferDataToTargets(topSubject, topConfig, targetGraphs);
+    await dm.transferDataToTargets(
+      topSubject,
+      topConfig,
+      targetGraphs,
+      sourceGraphs,
+    );
     for (const { subject, config } of hierarchy.children)
-      await dm.transferDataToTargets(subject, config, targetGraphs);
+      await dm.transferDataToTargets(
+        subject,
+        config,
+        targetGraphs,
+        sourceGraphs,
+      );
 
     // Perform post processing
     for (const graph of targetGraphs) {
-      await dm.postProcess(topSubject, topConfig, graph);
+      await dm.postProcess(topSubject, topConfig, graph, sourceGraphs);
       for (const { subject, config } of hierarchy.children)
-        await dm.postProcess(subject, config, graph);
+        await dm.postProcess(subject, config, graph, sourceGraphs);
     }
   }
   return new ProcessResult(true, triggerHappyHierarchies.length);
