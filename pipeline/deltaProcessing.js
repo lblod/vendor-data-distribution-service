@@ -75,11 +75,10 @@ export async function processEventSubjects(subjects) {
   // Target graph for each hierarchy and move parent and children to target
   for (const hierarchy of triggerHappyHierarchies) {
     const { topSubject, topConfig } = hierarchy;
-    const sourceAndTargetGraphs = await dm.sourceAndTargetGraphs(
+    const { sourceGraphs, targetGraphs } = await dm.sourceAndTargetGraphs(
       topSubject,
       topConfig,
     );
-    const { sourceGraphs, targetGraphs } = sourceAndTargetGraphs;
 
     if (!targetGraphs.length) {
       console.log(
