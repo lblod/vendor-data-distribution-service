@@ -1,10 +1,11 @@
 # vendor-data-distribution-service
 
-Service that copies hierarchical data to target graphs, based on configuration
-that filters subjects on type and an optional trigger query (SPARQL `ASK`
-query). Target graphs are fixed or calculated based on a general SPARQL
-`SELECT` query. For each subject, you can specify which properties to copy by
-whitelists, blacklists, or by marking properties as optional
+<strong>Service that copies hierarchical data from source graphs to target
+graphs, based on configuration that filters subjects on type and an optional
+trigger query (SPARQL `ASK` query). Source and target graphs are fixed or
+calculated based on a general SPARQL `SELECT` query. For each subject, you can
+specify which properties to copy by whitelists, blacklists, or by marking
+properties as optional.</strong>
 
 This service works by listening to delta messages from the `delta-notifier` and
 by copying configurable "pieces of information" (e.g. all data about entities,
@@ -179,7 +180,9 @@ pattern. Idem for a `DELETE` pattern. If you supply both an `INSERT` and
 `DELETE` pattern, you also need to provide a `WHERE` pattern. The patterns
 `${subject}` and `${targetgraph}` in the supplied strings are substituted with
 their respective values. Inserts and deletes are automatically scoped to the
-target graphs, so no need to include a `GRAPH ... { ... }` expression.
+target graphs, so no need to include a `GRAPH ... { ... }` expression. In the
+`WHERE` clause, the variable `?sourceGraph` is bound to the source graphs, it
+they are given in the related configuration.
 
 **NOTE on the use of prefixes:** any SPARQL pattern or full SPARQL query (like
 `vdds:trigger`, `vdds:graphQuery`, ...) can use the prefixes defined globally
@@ -218,7 +221,8 @@ optionality and default values:
 | `vdds:optionalProperty`    | 0 - n       | URIs of optional properties that may be copied to the target graphs. |
 | `vdds:trigger`             | 0 - 1       | SPARQL pattern that will be placed directly in an `ASK` query. Can be used to filter subjects. This could be anything: filter on a certain predicate, if a certain other part of the hierarchy exists or has a certain property, ... Pattern `${subject}` is substituted by the URI of the subject under consideration at the moment. |
 | `vdds:graphQuery`          | 0 - 1       | A full SPARQL `SELECT` query that allows to retrieve variables for constructing the (multiple) target graphs. Can be optional if the target graph is static. The pattern `${subject}` is substituted for the URI of the subject. |
-| `vdds:targetGraphTemplate` | 1           | Template string for the target graph URIs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
+| `vdds:targetGraphTemplate` | 1 - n       | Template string for the target graph URIs. Not optional. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
+| `vdds:sourceGraphTemplate` | 0 - n       | Template string for the source graph URIs. Optional. When not supplied, data from the whole triplestore is used for copying to the target graphs. When given, only data from these source graphs is copied to the target graphs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
 | `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
 | `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
 | `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
