@@ -556,8 +556,8 @@ export async function postProcess(subject, config, graph, sourceGraphs, mode) {
         ${deletePart}
         ${insertPart}
         WHERE {
-          VALUES ?g { ${graphValues} }
-          GRAPH ?g {
+          VALUES ?sourceGraph { ${graphValues} }
+          GRAPH ?sourceGraph {
             ${wherePattern}
           }
         }`;
