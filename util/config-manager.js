@@ -438,12 +438,12 @@ export function graphQuery(config) {
   return CONFIG.getObjects(config, ns.vdds`graphQuery`)[0];
 }
 
-export function sourceGraphTemplate(config) {
-  return CONFIG.getObjects(config, ns.vdds`sourceGraphTemplate`)[0];
+export function sourceGraphTemplates(config) {
+  return CONFIG.getObjects(config, ns.vdds`sourceGraphTemplate`);
 }
 
-export function targetGraphTemplate(config) {
-  return CONFIG.getObjects(config, ns.vdds`targetGraphTemplate`)[0];
+export function targetGraphTemplates(config) {
+  return CONFIG.getObjects(config, ns.vdds`targetGraphTemplate`);
 }
 
 export function properties(config) {

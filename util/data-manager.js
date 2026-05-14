@@ -300,39 +300,45 @@ export async function sourceAndTargetGraphs(subject, config, mode) {
     const response = await ss.querySudo(substitutedQuery, mode);
     const vars = response.head.vars;
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-    let targetGraphs,
+    let targetGraphs = [],
       sourceGraphs = [];
 
-    const targetGraphTemplateStr = cm.targetGraphTemplate(config).value;
-    targetGraphs = parsedResults.map((res) => {
-      let targetGraph = targetGraphTemplateStr;
-      vars.forEach((varname) => {
-        const regex = new RegExp('\\${' + varname + '}', 'g');
-        targetGraph = targetGraph.replaceAll(regex, res[varname].value);
-      });
-      return namedNode(targetGraph);
-    });
-
-    const sourceGraphTemplateStr = cm.sourceGraphTemplate(config)?.value;
-    if (sourceGraphTemplateStr) {
-      sourceGraphs = parsedResults.map((res) => {
-        let sourceGraph = sourceGraphTemplateStr;
-        vars.forEach((varname) => {
+    const targetGraphTemplateStrs = cm
+      .targetGraphTemplates(config)
+      .map((tgt) => tgt.value);
+    for (const result of parsedResults) {
+      for (let targetGraphStr of targetGraphTemplateStrs) {
+        for (const varname of vars) {
           const regex = new RegExp('\\${' + varname + '}', 'g');
-          sourceGraph = sourceGraph.replaceAll(regex, res[varname].value);
-        });
-        return namedNode(sourceGraph);
-      });
+          targetGraphStr = targetGraphStr.replaceAll(
+            regex,
+            result[varname].value,
+          );
+        }
+        targetGraphs.push(namedNode(targetGraphStr));
+      }
+    }
+
+    const sourceGraphTemplateStrs = cm
+      .sourceGraphTemplates(config)
+      .map((tgt) => tgt.value);
+    for (const result of parsedResults) {
+      for (let sourceGraphStr of sourceGraphTemplateStrs) {
+        for (const varname of vars) {
+          const regex = new RegExp('\\${' + varname + '}', 'g');
+          sourceGraphStr = sourceGraphStr.replaceAll(
+            regex,
+            result[varname].value,
+          );
+        }
+        sourceGraphs.push(namedNode(sourceGraphStr));
+      }
     }
 
     return new SourceAndTargetGraphs(sourceGraphs, targetGraphs);
   } else {
-    let targetGraphs = [],
-      sourceGraphs = [];
-    const targetGraphTemplate = cm.targetGraphTemplate(config);
-    if (targetGraphTemplate) targetGraphs = [targetGraphTemplate];
-    const sourceGraphTemplate = cm.sourceGraphTemplate(config);
-    if (sourceGraphTemplate) sourceGraphs = [sourceGraphTemplate];
+    const targetGraphs = cm.targetGraphTemplates(config);
+    const sourceGraphs = cm.sourceGraphTemplates(config);
     return new SourceAndTargetGraphs(sourceGraphs, targetGraphs);
   }
 }
