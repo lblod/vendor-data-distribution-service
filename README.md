@@ -347,6 +347,9 @@ service. Supply a value for them using the `environment` keyword in the
   the same subjects.
 * `PROCESSING_INTERVAL_SIZE`: <em>(optional, default: 100)</em> amount of
   subject-identifier combinations that will be batch processed at a time.
+* `BATCH_SIZE`: <em>(optional, default: 100)</em> maximum amount of triples to
+  include in DELETE and INSERT queries. Also used as limit for the selection of
+  subjects while healing.
 * `CLEANUP_CRON`: <em>(optional, default: "30 * * * *")</em> periodic cleanup
   job timer. This performs a batch processing of subjects from the temporary
   graph. Can be kept to a minimum, because there should normally be no
