@@ -323,7 +323,7 @@ export async function insertData(store, graph, mode) {
         await insertTriplesInGraphWithoutBatching(graph, batch, mode);
         start += batchSize;
         batchSize = originalBatchSize;
-      } catch {
+      } catch (err) {
         if (batchSize > 1) {
           batchSize = Math.ceil(batchSize / 2);
         } else {
@@ -332,8 +332,10 @@ export async function insertData(store, graph, mode) {
             rst.termToString(triples[start].predicate),
             rst.termToString(triples[start].object),
           ].join(' ');
+          console.error(err);
           throw new Error(
             `The following triple could not be inserted into the triplestore:\n\t${tripleString}\nThis might be because of a network issue, a syntax issue or because the triple is too long.`,
+            { cause: err },
           );
         }
       }
@@ -411,7 +413,7 @@ export async function deleteData(store, graph, mode) {
         await deleteTriplesFromGraphWithoutBatching(graph, batch, mode);
         start += batchSize;
         batchSize = originalBatchSize;
-      } catch {
+      } catch (err) {
         if (batchSize > 1) {
           batchSize = Math.ceil(batchSize / 2);
         } else {
@@ -420,8 +422,10 @@ export async function deleteData(store, graph, mode) {
             rst.termToString(triples[start].predicate),
             rst.termToString(triples[start].object),
           ].join(' ');
+          console.error(err);
           throw new Error(
             `The following triple could not be removed from the triplestore:\n\t${tripleString}\nThis might be because of a network issue, a syntax issue or because the triple is too long.`,
+            { cause: err },
           );
         }
       }
