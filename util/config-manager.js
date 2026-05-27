@@ -144,23 +144,32 @@ function errorOnInvalidConfig() {
       );
   });
 
-  // vdds:Class without vdds:targetGraphQuery and the vdds:targetGraphTemplate
+  // vdds:Class without vdds:graphQuery and the vdds:targetGraphTemplate
   // uses variables
   [...classes]
-    .filter((subject) => !CONFIG.has(subject, ns.vdds`targetGraphQuery`))
+    .filter((subject) => !CONFIG.has(subject, ns.vdds`graphQuery`))
     .forEach((subject) => {
-      const templateStr = CONFIG.getObjects(
+      const targetTemplateStr = CONFIG.getObjects(
         subject,
         ns.vdds`targetGraphTemplate`,
       )[0]?.value;
-      if (templateStr && templateStr.match(/\${\w+}/)?.length > 0) {
+      if (targetTemplateStr && targetTemplateStr.match(/\${\w+}/)?.length > 0) {
         throw new Error(
-          `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`targetGraphQuery`)}, but uses variables in its ${rst.termToString(ns.vdds`targetGraphTemplate`)}.`,
+          `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`graphQuery`)}, but uses variables in its ${rst.termToString(ns.vdds`targetGraphTemplate`)}.`,
+        );
+      }
+      const sourceTemplateStr = CONFIG.getObjects(
+        subject,
+        ns.vdds`sourceGraphTemplate`,
+      )[0]?.value;
+      if (sourceTemplateStr && sourceTemplateStr.match(/\${\w+}/)?.length > 0) {
+        throw new Error(
+          `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`graphQuery`)}, but uses variables in its ${rst.termToString(ns.vdds`sourceGraphTemplate`)}.`,
         );
       }
     });
 
-  // vdds:Subclass cannot have vdds:trigger, vdds:targetGraphQuery nor
+  // vdds:Subclass cannot have vdds:trigger, vdds:graphQuery nor
   // vdds:targetGraphTemplate
   [...subclasses].forEach((subject) => {
     if (CONFIG.has(subject, ns.vdds`trigger`)) {
@@ -170,9 +179,9 @@ function errorOnInvalidConfig() {
     }
   });
   [...subclasses].forEach((subject) => {
-    if (CONFIG.has(subject, ns.vdds`targetGraphQuery`))
+    if (CONFIG.has(subject, ns.vdds`graphQuery`))
       throw new Error(
-        `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`targetGraphQuery`)}, but this is never used and should be removed for clarity. Only top-level classes can have these queries, not subclasses.`,
+        `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`graphQuery`)}, but this is never used and should be removed for clarity. Only top-level classes can have these queries, not subclasses.`,
       );
   });
   [...subclasses].forEach((subject) => {
@@ -425,12 +434,16 @@ export function trigger(config) {
   return CONFIG.getObjects(config, ns.vdds`trigger`)[0];
 }
 
-export function targetGraphQuery(config) {
-  return CONFIG.getObjects(config, ns.vdds`targetGraphQuery`)[0];
+export function graphQuery(config) {
+  return CONFIG.getObjects(config, ns.vdds`graphQuery`)[0];
 }
 
-export function targetGraphTemplate(config) {
-  return CONFIG.getObjects(config, ns.vdds`targetGraphTemplate`)[0];
+export function sourceGraphTemplates(config) {
+  return CONFIG.getObjects(config, ns.vdds`sourceGraphTemplate`);
+}
+
+export function targetGraphTemplates(config) {
+  return CONFIG.getObjects(config, ns.vdds`targetGraphTemplate`);
 }
 
 export function properties(config) {

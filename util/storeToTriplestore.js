@@ -313,31 +313,79 @@ export async function getDataFromConstructQuery(query, overrideGraph) {
  */
 export async function insertData(store, graph, mode) {
   const insertFunction = async (store, graph) => {
-    const writer = new N3.Writer();
-    store.forEach((q) => writer.addQuad(q.subject, q.predicate, q.object));
-    const triplesSparql = await new Promise((resolve, reject) =>
-      writer.end((error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }),
-    );
-    await ss.updateSudo(
-      `INSERT DATA {
-        GRAPH ${rst.termToString(graph)} {
-          ${triplesSparql}
+    const triples = [...store];
+    let batchSize = env.BATCH_SIZE;
+    const originalBatchSize = env.BATCH_SIZE;
+    let start = 0;
+    while (start < triples.length) {
+      try {
+        const batch = triples.slice(start, start + batchSize);
+        await insertTriplesInGraphWithoutBatching(graph, batch, mode);
+        start += batchSize;
+        batchSize = originalBatchSize;
+      } catch (err) {
+        if (batchSize > 1) {
+          batchSize = Math.ceil(batchSize / 2);
+        } else {
+          const tripleString = [
+            rst.termToString(triples[start].subject),
+            rst.termToString(triples[start].predicate),
+            rst.termToString(triples[start].object),
+          ].join(' ');
+          console.error(err);
+          throw new Error(
+            `The following triple could not be inserted into the triplestore:\n\t${tripleString}\nThis might be because of a network issue, a syntax issue or because the triple is too long.`,
+            { cause: err },
+          );
         }
-      }`,
-      mode,
-    );
+      }
+    }
   };
 
   if (store.size < 1) return;
   if (graph) await insertFunction(store, graph);
   else
     for (const graph of store.getGraphs()) {
-      const triples = store.getQuads(undefined, undefined, undefined, graph);
-      await insertFunction(triples, graph);
+      const triplesSet = store.match(undefined, undefined, undefined, graph);
+      await insertFunction(triplesSet, graph);
     }
+}
+
+/**
+ * Inserts an N3 Store into the triplestore.
+ *
+ * @public
+ * @async
+ * @function
+ * @param {NamedNode} graph - Target graph where the triples should be inserted
+ * into.
+ * @param {N3.Store|Iterable} store - Store or other iterable collection
+ * containing the data that needs to be inserted.
+ * @param {String} mode - Optional. Used to differentiate between normal
+ * operations ('copy') and healing operations ('healing').
+ * @returns {undefined} Nothing. (Might return the response object of a REST
+ * call to the triplestore to insert the data.)
+ */
+async function insertTriplesInGraphWithoutBatching(graph, store, mode) {
+  if (store.size && store.size <= 0) return;
+  if (store.length && store.length <= 0) return;
+  //Use a proper writer for when the data is properly formatted.
+  const writer = new N3.Writer();
+  store.forEach((q) => writer.addQuad(q.subject, q.predicate, q.object));
+  const triplesSparql = await new Promise((resolve, reject) =>
+    writer.end((error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    }),
+  );
+  return await ss.updateSudo(
+    `INSERT DATA {
+      GRAPH ${rst.termToString(graph)} {
+        ${triplesSparql}
+      }
+    }`,
+    mode,
+  );
 }
 
 /**
@@ -365,7 +413,7 @@ export async function deleteData(store, graph, mode) {
         await deleteTriplesFromGraphWithoutBatching(graph, batch, mode);
         start += batchSize;
         batchSize = originalBatchSize;
-      } catch {
+      } catch (err) {
         if (batchSize > 1) {
           batchSize = Math.ceil(batchSize / 2);
         } else {
@@ -374,8 +422,10 @@ export async function deleteData(store, graph, mode) {
             rst.termToString(triples[start].predicate),
             rst.termToString(triples[start].object),
           ].join(' ');
+          console.error(err);
           throw new Error(
             `The following triple could not be removed from the triplestore:\n\t${tripleString}\nThis might be because of a network issue, a syntax issue or because the triple is too long.`,
+            { cause: err },
           );
         }
       }
@@ -386,8 +436,8 @@ export async function deleteData(store, graph, mode) {
   if (graph) await deleteFunction(store, graph);
   else
     for (const graph of store.getGraphs()) {
-      const triples = store.getQuads(undefined, undefined, undefined, graph);
-      await deleteFunction(triples, graph);
+      const triplesSet = store.match(undefined, undefined, undefined, graph);
+      await deleteFunction(triplesSet, graph);
     }
 }
 
@@ -440,7 +490,7 @@ async function deleteTriplesFromGraphWithoutBatching(graph, store, mode) {
       triplesSparql.push(formatTriple(quad));
   });
   if (triplesSparql.length)
-    await ss.updateSudo(
+    return await ss.updateSudo(
       `DELETE DATA {
         GRAPH ${rst.termToString(graph)} {
           ${triplesSparql.join('\n')}
