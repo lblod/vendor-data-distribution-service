@@ -300,8 +300,8 @@ export async function sourceAndTargetGraphs(subject, config, mode) {
     const response = await ss.querySudo(substitutedQuery, mode);
     const vars = response.head.vars;
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
-    let targetGraphs = [],
-      sourceGraphs = [];
+    let targetGraphs = new Map(),
+      sourceGraphs = new Map();
 
     const targetGraphTemplateStrs = cm
       .targetGraphTemplates(config)
@@ -315,7 +315,7 @@ export async function sourceAndTargetGraphs(subject, config, mode) {
             result[varname].value,
           );
         }
-        targetGraphs.push(namedNode(targetGraphStr));
+        targetGraphs.set(targetGraphStr, namedNode(targetGraphStr));
       }
     }
 
@@ -331,11 +331,14 @@ export async function sourceAndTargetGraphs(subject, config, mode) {
             result[varname].value,
           );
         }
-        sourceGraphs.push(namedNode(sourceGraphStr));
+        sourceGraphs.set(sourceGraphStr, namedNode(sourceGraphStr));
       }
     }
 
-    return new SourceAndTargetGraphs(sourceGraphs, targetGraphs);
+    return new SourceAndTargetGraphs(
+      [...sourceGraphs.values()],
+      [...targetGraphs.values()],
+    );
   } else {
     const targetGraphs = cm.targetGraphTemplates(config);
     const sourceGraphs = cm.sourceGraphTemplates(config);
