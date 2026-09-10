@@ -226,6 +226,7 @@ optionality and default values:
 | `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
 | `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
 | `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
+| `vdds:excludeSourceGraphTemplates` | 0 - n       | Template string for source graph URIs that need to be ignored. Optional. When not supplied, no special filtering is done. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
 
 ### `vdds:Subclass`
 
