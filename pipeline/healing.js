@@ -116,7 +116,8 @@ export async function healConfigs(configs = []) {
           'healing',
         );
 
-        const { sourceGraphs, targetGraphs } = sourceAndTargetGraphs;
+        const { sourceGraphs, targetGraphs, excludedSourceGraphs } =
+          sourceAndTargetGraphs;
 
         if (!targetGraphs.length) {
           console.log(
@@ -134,6 +135,7 @@ export async function healConfigs(configs = []) {
           topConfig,
           targetGraphs,
           sourceGraphs,
+          excludedSourceGraphs,
           'healing',
         );
         for (const { subject, config } of hierarchy.children)
@@ -142,6 +144,7 @@ export async function healConfigs(configs = []) {
             config,
             targetGraphs,
             sourceGraphs,
+            excludedSourceGraphs,
             'healing',
           );
 
@@ -152,6 +155,7 @@ export async function healConfigs(configs = []) {
             topConfig,
             graph,
             sourceGraphs,
+            excludedSourceGraphs,
             'healing',
           );
           for (const { subject, config } of hierarchy.children)
@@ -160,6 +164,7 @@ export async function healConfigs(configs = []) {
               config,
               graph,
               sourceGraphs,
+              excludedSourceGraphs,
               'healing',
             );
         }

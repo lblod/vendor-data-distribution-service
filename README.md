@@ -212,20 +212,21 @@ subject's underlying type.
 These are the possible properties that the service responds to, with their
 optionality and default values:
 
-| Property                   | Cardinality | Description & Possible values    |
-| -------------------------- | ----------- | -------------------------------- |
-| `rdf:type`                 | 1           | Always needs to be `vdds:Class`. Having this type in the configuration file is a way for the service to identify hierarchies. |
-| `vdds:type`                | 0 - 1       | Defines the actual type of the subject that needs to be copied to the target graphs. If this property is omitted, the URI of this entity is used as the `vdds:type` by default. |
-| `vdds:property`            | 0 - n       | URIs of the properties on the subject that must be copied to the target graphs that all need to exist. Defaults to `vdds:allProperties`, a special URI that signals that all properties must be copied. |
-| `vdds:excludeProperty`     | 0 - n       | URIs of the properties that must not be copied to the target graphs. This "blacklists" certain properties, on top of the `vdds:property` properties list. |
-| `vdds:optionalProperty`    | 0 - n       | URIs of optional properties that may be copied to the target graphs. |
-| `vdds:trigger`             | 0 - 1       | SPARQL pattern that will be placed directly in an `ASK` query. Can be used to filter subjects. This could be anything: filter on a certain predicate, if a certain other part of the hierarchy exists or has a certain property, ... Pattern `${subject}` is substituted by the URI of the subject under consideration at the moment. |
-| `vdds:graphQuery`          | 0 - 1       | A full SPARQL `SELECT` query that allows to retrieve variables for constructing the (multiple) target graphs. Can be optional if the target graph is static. The pattern `${subject}` is substituted for the URI of the subject. |
-| `vdds:targetGraphTemplate` | 1 - n       | Template string for the target graph URIs. Not optional. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
-| `vdds:sourceGraphTemplate` | 0 - n       | Template string for the source graph URIs. Optional. When not supplied, data from the whole triplestore is used for copying to the target graphs. When given, only data from these source graphs is copied to the target graphs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
-| `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
-| `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
-| `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
+| Property                           | Cardinality | Description & Possible values    |
+| ---------------------------------- | ----------- | -------------------------------- |
+| `rdf:type`                         | 1           | Always needs to be `vdds:Class`. Having this type in the configuration file is a way for the service to identify hierarchies. |
+| `vdds:type`                        | 0 - 1       | Defines the actual type of the subject that needs to be copied to the target graphs. If this property is omitted, the URI of this entity is used as the `vdds:type` by default. |
+| `vdds:property`                    | 0 - n       | URIs of the properties on the subject that must be copied to the target graphs that all need to exist. Defaults to `vdds:allProperties`, a special URI that signals that all properties must be copied. |
+| `vdds:excludeProperty`             | 0 - n       | URIs of the properties that must not be copied to the target graphs. This "blacklists" certain properties, on top of the `vdds:property` properties list. |
+| `vdds:optionalProperty`            | 0 - n       | URIs of optional properties that may be copied to the target graphs. |
+| `vdds:trigger`                     | 0 - 1       | SPARQL pattern that will be placed directly in an `ASK` query. Can be used to filter subjects. This could be anything: filter on a certain predicate, if a certain other part of the hierarchy exists or has a certain property, ... Pattern `${subject}` is substituted by the URI of the subject under consideration at the moment. |
+| `vdds:graphQuery`                  | 0 - 1       | A full SPARQL `SELECT` query that allows to retrieve variables for constructing the (multiple) target graphs. Can be optional if the target graph is static. The pattern `${subject}` is substituted for the URI of the subject. |
+| `vdds:targetGraphTemplate`         | 1 - n       | Template string for the target graph URIs. Not optional. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
+| `vdds:sourceGraphTemplate`         | 0 - n       | Template string for the source graph URIs. Optional. When not supplied, data from the whole triplestore is used for copying to the target graphs. When given, only data from these source graphs is copied to the target graphs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
+| `vdds:excludeSourceGraphTemplates` | 0 - n       | Template string for source graph URIs that need to be ignored. Optional. When not supplied, no special filtering is done. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
+| `vdds:postProcessDelete`           | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
+| `vdds:postProcessInsert`           | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
+| `vdds:postProcessWhere`            | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
 
 ### `vdds:Subclass`
 

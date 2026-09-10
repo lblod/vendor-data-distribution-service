@@ -265,9 +265,10 @@ export async function hierarchyChildren(hierarchy, mode) {
 }
 
 export class SourceAndTargetGraphs {
-  constructor(sourceGraphs, targetGraphs) {
+  constructor(sourceGraphs, targetGraphs, excludedSourceGraphs) {
     this.sourceGraphs = sourceGraphs;
     this.targetGraphs = targetGraphs;
+    this.excludedSourceGraphs = excludedSourceGraphs;
   }
 }
 
@@ -287,8 +288,9 @@ export class SourceAndTargetGraphs {
  * @param {String} mode - Optional. Used to differentiate between normal
  * operations ('copy') and healing operations ('healing').
  * @returns {SourceAndTargetGraphs} An instance of SourceAndTargetGraphs with
- * properties `sourceGraphs` and `targetGraphs` with collections of NamedNodes
- * representing the calculated source and target graphs respectively.
+ * properties `sourceGraphs`, `targetGraphs` and `excludedSourceGraphs` with
+ * collections of NamedNodes representing the calculated source and target
+ * graphs respectively.
  */
 export async function sourceAndTargetGraphs(subject, config, mode) {
   const targetQuery = cm.graphQuery(config);
@@ -301,7 +303,8 @@ export async function sourceAndTargetGraphs(subject, config, mode) {
     const vars = response.head.vars;
     const parsedResults = sparqlJsonParser.parseJsonResults(response);
     let targetGraphs = [],
-      sourceGraphs = [];
+      sourceGraphs = [],
+      excludedSourceGraphs = [];
 
     const targetGraphTemplateStrs = cm
       .targetGraphTemplates(config)
@@ -335,11 +338,36 @@ export async function sourceAndTargetGraphs(subject, config, mode) {
       }
     }
 
-    return new SourceAndTargetGraphs(sourceGraphs, targetGraphs);
+    const excludedSourceGraphsStrs = cm
+      .excludeSourceGraphTemplates(config)
+      .map((tgt) => tgt.value);
+    for (const result of parsedResults) {
+      for (let excludedSourceGraphStr of excludedSourceGraphsStrs) {
+        for (const varname of vars) {
+          const regex = new RegExp('\\${' + varname + '}', 'g');
+          excludedSourceGraphStr = excludedSourceGraphStr.replaceAll(
+            regex,
+            result[varname].value,
+          );
+        }
+        excludedSourceGraphs.push(namedNode(excludedSourceGraphStr));
+      }
+    }
+
+    return new SourceAndTargetGraphs(
+      sourceGraphs,
+      targetGraphs,
+      excludedSourceGraphs,
+    );
   } else {
     const targetGraphs = cm.targetGraphTemplates(config);
     const sourceGraphs = cm.sourceGraphTemplates(config);
-    return new SourceAndTargetGraphs(sourceGraphs, targetGraphs);
+    const excludedSourceGraphs = cm.excludedSourceGraphs(config);
+    return new SourceAndTargetGraphs(
+      sourceGraphs,
+      targetGraphs,
+      excludedSourceGraphs,
+    );
   }
 }
 
@@ -370,6 +398,7 @@ export async function transferDataToTargets(
   config,
   targetGraphs,
   sourceGraphs,
+  excludedSourceGraphs,
   mode,
 ) {
   // Hack: if no sourceGraphs, then use `undefined` as a fallback to allow
@@ -392,7 +421,7 @@ export async function transferDataToTargets(
       // All properties
       const sourceData = await sts.getDataForSubject(
         subject,
-        sourceGraph,
+        sourceGraph, //this is potentially undefined, see above
         excludeProperties,
         mode,
       );
@@ -405,7 +434,7 @@ export async function transferDataToTargets(
         });
         const sourceData = await sts.getDataForSubjectMandatoryProperties(
           subject,
-          sourceGraph,
+          sourceGraph, //this is potentially undefined, see above
           leftOverProperties,
           mode,
         );
@@ -418,7 +447,7 @@ export async function transferDataToTargets(
         });
         const sourceData = await sts.getDataForSubjectOptionalProperties(
           subject,
-          sourceGraph,
+          sourceGraph, //this is potentially undefined, see above
           leftOverProperties,
           mode,
         );
@@ -430,6 +459,13 @@ export async function transferDataToTargets(
   sourceStore
     .getQuads(undefined, undefined, undefined, namedNode(env.TEMP_GRAPH))
     .forEach((quad) => sourceStore.removeQuad(quad));
+
+  //Remove data from excluded graphs
+  for (const excludedGraph of excludedSourceGraphs) {
+    sourceStore
+      .getQuads(undefined, undefined, undefined, excludedGraph)
+      .forEach((quad) => sourceStore.removeQuad(quad));
+  }
 
   for (const targetGraph of targetGraphs) {
     const targetStore = new N3.Store([], { entityIndex });
@@ -493,11 +529,20 @@ export async function transferDataToTargets(
  * @param {Array(NamedNode)} sourceGraphs - Collection of NamedNodes
  * representing possible source graphs from which to select data. Leave
  * undefined or [undefined] to allow selecting from the whole triplestore.
+ * @param {Array(NamedNode)} excludedSourceGraphs - Collection of NamedNodes
+ * representing possible graphs that need to be ignored when selecting data.
  * @param {String} mode - Optional. Used to differentiate between normal
  * operations ('copy') and healing operations ('healing').
  * @returns {undefined} Nothing
  */
-export async function postProcess(subject, config, graph, sourceGraphs, mode) {
+export async function postProcess(
+  subject,
+  config,
+  graph,
+  sourceGraphs,
+  excludedSourceGraphs,
+  mode,
+) {
   const [deletePattern, insertPattern, wherePattern] = [
     cm.postProcessDelete(config),
     cm.postProcessInsert(config),
@@ -508,6 +553,12 @@ export async function postProcess(subject, config, graph, sourceGraphs, mode) {
         .replaceAll('${subject}', rst.termToString(subject))
         .replaceAll('${targetgraph}', rst.termToString(graph));
   });
+  sourceGraphs = sourceGraphs === undefined ? [] : sourceGraphs;
+  sourceGraphs = sourceGraphs[0] === undefined ? [] : sourceGraphs;
+  excludedSourceGraphs =
+    excludedSourceGraphs === undefined ? [] : excludedSourceGraphs;
+  excludedSourceGraphs =
+    excludedSourceGraphs[0] === undefined ? [] : excludedSourceGraphs;
 
   // Only a DELETE, no WHERE => DELETE DATA
   // Only an INSERT, no WHERE => INSERT DATA
@@ -550,8 +601,14 @@ export async function postProcess(subject, config, graph, sourceGraphs, mode) {
 
     // If sourceGraphs have been given, only select from there, otherwise
     // select from the whole triplestore.
-    if (sourceGraphs?.length > 0 && sourceGraphs[0] !== undefined) {
-      const graphValues = sourceGraphs.map(rst.termToString).join('\n');
+    if (sourceGraphs?.length > 0) {
+      // Retract excluded graphs
+      const leftoverSourceGraphs = sourceGraphs.filter((sourceGraph) => {
+        return !excludedSourceGraphs.find(
+          (excludedGraph) => sourceGraph.value === excludedGraph.value,
+        );
+      });
+      const graphValues = leftoverSourceGraphs.map(rst.termToString).join('\n');
       query = `
         ${deletePart}
         ${insertPart}
@@ -560,6 +617,19 @@ export async function postProcess(subject, config, graph, sourceGraphs, mode) {
           GRAPH ?sourceGraph {
             ${wherePattern}
           }
+        }`;
+    } else if (excludedSourceGraphs?.length > 0) {
+      const excludedSourceGraphsValues = excludedSourceGraphs
+        .map(rst.termToString)
+        .join('\n');
+      query = `
+        ${deletePart}
+        ${insertPart}
+        WHERE {
+          GRAPH ?_graph {
+            ${wherePattern}
+          }
+          FILTER ?_graph NOT IN (${excludedSourceGraphsValues})
         }`;
     } else {
       query = `
