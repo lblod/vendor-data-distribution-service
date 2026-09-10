@@ -167,6 +167,18 @@ function errorOnInvalidConfig() {
           `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`graphQuery`)}, but uses variables in its ${rst.termToString(ns.vdds`sourceGraphTemplate`)}.`,
         );
       }
+      const excludeSourceTemplateStr = CONFIG.getObjects(
+        subject,
+        ns.vdds`excludeSourceGraphTemplate`,
+      )[0]?.value;
+      if (
+        excludeSourceTemplateStr &&
+        excludeSourceTemplateStr.match(/\${\w+}/)?.length > 0
+      ) {
+        throw new Error(
+          `Subject ${rst.termToString(subject)} has no ${rst.termToString(ns.vdds`graphQuery`)}, but uses variables in its ${rst.termToString(ns.vdds`excludeSourceGraphTemplate`)}.`,
+        );
+      }
     });
 
   // vdds:Subclass cannot have vdds:trigger, vdds:graphQuery nor
@@ -440,6 +452,10 @@ export function graphQuery(config) {
 
 export function sourceGraphTemplates(config) {
   return CONFIG.getObjects(config, ns.vdds`sourceGraphTemplate`);
+}
+
+export function excludeSourceGraphTemplates(config) {
+  return CONFIG.getObjects(config, ns.vdds`excludeSourceGraphTemplate`);
 }
 
 export function targetGraphTemplates(config) {
