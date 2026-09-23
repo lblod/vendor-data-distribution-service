@@ -34,6 +34,11 @@ export const CLEANUP_CRON = envvar
   .default('30 * * * *')
   .asString();
 
+export const HEALING_CRON = envvar
+  .get('HEALING_CRON')
+  .default('0 4 * * *')
+  .asString();
+
 export const CREATOR =
   'http://lblod.data.gift/services/vendor-data-distribution-service';
 

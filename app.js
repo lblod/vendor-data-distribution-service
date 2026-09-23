@@ -38,6 +38,8 @@ let runningTimer = undefined;
 
 cron.schedule(env.CLEANUP_CRON, process);
 
+cron.schedule(env.HEALING_CRON, healing);
+
 runningTimer = setTimeout(process, 10000);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,6 +107,19 @@ async function process() {
   } finally {
     if (timerLock.isAcquired()) timerLock.release();
     if (processingLock.isAcquired()) processingLock.release();
+  }
+}
+
+/*
+ * Healing on the vendor graph, started by the CRON job that is
+ * configured through the `HEALING_CRON` environment variable.
+ */
+async function healing() {
+  console.log('HEALING: CRON job triggered healing on the vendor graph.');
+  try {
+    await hea.heal();
+  } catch (err) {
+    await logError(err);
   }
 }
 
