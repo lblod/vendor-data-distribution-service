@@ -354,6 +354,8 @@ service. Supply a value for them using the `environment` keyword in the
   job timer. This performs a batch processing of subjects from the temporary
   graph. Can be kept to a minimum, because there should normally be no
   leftovers except in the event of catastrophic failure.
+* `HEALING_CRON`: <em>(optional, default: "0 4 * * *")</em> cron pattern to
+  trigger the healing periodically. Defaults to a daily healing at 4am.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
   "info", "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
@@ -377,6 +379,10 @@ CRON job, and even that cleanup job should be redundant.
 
 <strong>This healing implementation is somewhat rudimentary. Keep an eye on the
 logs to track its progress.</strong>
+
+The healing also runs periodically on the `HEALING_CRON` cron pattern, which
+defaults to a daily healing at 4am. See
+[Other environment variables](#other-environment-variables).
 
 ### POST `/heal`
 
