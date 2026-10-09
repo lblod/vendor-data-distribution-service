@@ -169,12 +169,19 @@ function errorOnInvalidConfig() {
       }
     });
 
-  // vdds:Subclass cannot have vdds:trigger, vdds:graphQuery nor
-  // vdds:targetGraphTemplate
+  // vdds:Subclass cannot have vdds:trigger, vdds:partialHealingTrigger,
+  // vdds:graphQuery nor vdds:targetGraphTemplate
   [...subclasses].forEach((subject) => {
     if (CONFIG.has(subject, ns.vdds`trigger`)) {
       throw new Error(
         `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`trigger`)}, but this never used and should be removed for clarity. Only top-level classes can have trigger patterns, not subclasses.`,
+      );
+    }
+  });
+  [...subclasses].forEach((subject) => {
+    if (CONFIG.has(subject, ns.vdds`partialHealingTrigger`)) {
+      throw new Error(
+        `Subclass definition ${rst.termToString(subject)} has a ${rst.termToString(ns.vdds`partialHealingTrigger`)}, but this never used and should be removed for clarity. Only top-level classes can have trigger patterns, not subclasses.`,
       );
     }
   });
@@ -432,6 +439,10 @@ export function isInverse(config) {
 
 export function trigger(config) {
   return CONFIG.getObjects(config, ns.vdds`trigger`)[0];
+}
+
+export function partialHealingTrigger(config) {
+  return CONFIG.getObjects(config, ns.vdds`partialHealingTrigger`)[0];
 }
 
 export function graphQuery(config) {
