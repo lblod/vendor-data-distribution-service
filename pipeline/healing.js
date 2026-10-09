@@ -8,27 +8,35 @@ import * as sjp from 'sparqljson-parse';
 const sparqlJsonParser = new sjp.SparqlJsonParser();
 
 /**
- * Starts a full healing process, on all the configurations.
+ * Starts a full healing process, on the given configurations, and given
+ * subjects.
  *
  * @public
  * @async
  * @function
+ * @param {Boolean} partial - Optional, defaults to false. Set partial healing
+ * for limited subjects.
+ * @param {Array(NamedNode)} subjects - Optional. Subjects to heal only.
+ * @param {Array(NamedNode)} configs - Optional. List of configs to perform
+ * healing on. If none are given, perform healing on all the configurations.
  * @returns {undefined} Nothing.
  */
-export async function heal() {
-  await healConfigs();
+export async function heal(partial = false, subjects = [], configs = []) {
+  await healSubjects(partial, subjects);
+  await healConfigs(partial, configs);
 }
 
 /**
  * Starts healing on specific subjects.
  *
- * @public
  * @async
  * @function
+ * @param {Boolean} partial - Optional, defaults to false. Set partial healing
+ * for limited subjects.
  * @param {Array(NamedNode)} subjects - Subjects to heal only.
  * @returns {ProcessResult} Instance of ProcessResult to indicate results.
  */
-export async function healSubjects(subjects = []) {
+async function healSubjects(partial, subjects) {
   if (subjects?.length > 0) return dp.processEventSubjects(subjects);
 }
 
@@ -39,7 +47,6 @@ export async function healSubjects(subjects = []) {
  * the whole triplestore. These are costly operations!
  * While processing, it prints messages about its progress.
  *
- * @public
  * @async
  * @function
  * @param {Boolean} partial - Optional, defaults to false. Set partial healing
