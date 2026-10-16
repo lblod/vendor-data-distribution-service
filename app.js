@@ -38,7 +38,7 @@ let runningTimer = undefined;
 
 cron.schedule(env.CLEANUP_CRON, process);
 
-cron.schedule(env.HEALING_CRON, healing);
+cron.schedule(env.HEALING_CRON, partialHealing);
 
 runningTimer = setTimeout(process, 10000);
 
@@ -114,10 +114,10 @@ async function process() {
  * Healing on the vendor graph, started by the CRON job that is
  * configured through the `HEALING_CRON` environment variable.
  */
-async function healing() {
-  console.log('HEALING: CRON job triggered healing on the vendor graph.');
+async function partialHealing() {
+  console.log('HEALING: CRON job triggered partial healing.');
   try {
-    await hea.heal();
+    await hea.heal(true);
   } catch (err) {
     await logError(err);
   }
@@ -137,46 +137,26 @@ app.post('/heal', async function (req, res, next) {
       'Healing will start immediately. Check the logs of this service to track progress.',
   });
   try {
-    console.log('Will start healing on the whole configuration.');
-    await hea.heal();
-  } catch (err) {
-    next(err);
-  }
-});
-/**
- * Only heal for a set of configurations.
- */
-app.post('/heal/configs', async function (req, res, next) {
-  // Send success code back. We will execute the healing later.
-  res.status(200).send({
-    message:
-      'Healing will start immediately. Check the logs of this service to track progress.',
-  });
-  try {
-    const onlyConfigs =
-      req.body?.configs?.constructor?.name === 'Array' ? req.body.configs : [];
-    console.log(`Will start healing with filter [${onlyConfigs.join(', ')}].`);
-    await hea.healConfigs(onlyConfigs.map(namedNode));
-  } catch (err) {
-    next(err);
-  }
-});
-/**
- * Only heal for a set of subjects.
- */
-app.post('/heal/subjects', async function (req, res, next) {
-  // Send success code back. We will execute the healing later.
-  res.status(200).send({
-    message:
-      'Healing will start immediately. Check the logs of this service to track progress.',
-  });
-  try {
+    const partial =
+      req.body?.partial?.constructor?.name === 'Boolean'
+        ? req.body.partial
+        : false;
+
     const subjects =
       req.body?.subjects?.constructor?.name === 'Array'
         ? req.body.subjects
         : [];
     console.log(`Will start healing on subjects [${subjects.join(', ')}].`);
-    await hea.healSubjects(subjects.map(namedNode));
+
+    const onlyConfigs =
+      req.body?.configs?.constructor?.name === 'Array' ? req.body.configs : [];
+    console.log(`Will start healing on configs [${onlyConfigs.join(', ')}].`);
+
+    await hea.heal(
+      partial,
+      subjects.map(namedNode),
+      onlyConfigs.map(namedNode),
+    );
   } catch (err) {
     next(err);
   }

@@ -8,27 +8,33 @@ import * as sjp from 'sparqljson-parse';
 const sparqlJsonParser = new sjp.SparqlJsonParser();
 
 /**
- * Starts a full healing process, on all the configurations.
+ * Starts a full healing process, on the given configurations, and given
+ * subjects.
  *
  * @public
  * @async
  * @function
+ * @param {Boolean} partial - Optional, defaults to false. Set partial healing
+ * for limited subjects.
+ * @param {Array(NamedNode)} subjects - Optional. Subjects to heal only.
+ * @param {Array(NamedNode)} configs - Optional. List of configs to perform
+ * healing on. If none are given, perform healing on all the configurations.
  * @returns {undefined} Nothing.
  */
-export async function heal() {
-  await healConfigs();
+export async function heal(partial = false, subjects = [], configs = []) {
+  await healSubjects(subjects);
+  await healConfigs(partial, configs);
 }
 
 /**
  * Starts healing on specific subjects.
  *
- * @public
  * @async
  * @function
  * @param {Array(NamedNode)} subjects - Subjects to heal only.
  * @returns {ProcessResult} Instance of ProcessResult to indicate results.
  */
-export async function healSubjects(subjects = []) {
+async function healSubjects(subjects) {
   if (subjects?.length > 0) return dp.processEventSubjects(subjects);
 }
 
@@ -39,14 +45,15 @@ export async function healSubjects(subjects = []) {
  * the whole triplestore. These are costly operations!
  * While processing, it prints messages about its progress.
  *
- * @public
  * @async
  * @function
+ * @param {Boolean} partial - Optional, defaults to false. Set partial healing
+ * for limited subjects.
  * @param {Array(NamedNode)} configs - Optional. List of configs to perform
  * healing on. If none are given, perform healing on all the configurations.
  * @returns {undefined} Nothing.
  */
-export async function healConfigs(configs = []) {
+async function healConfigs(partial, configs) {
   configs = configs?.length > 0 ? configs : cm.classes();
 
   for (let configCounter = 0; configCounter < configs.length; configCounter++) {
@@ -55,11 +62,19 @@ export async function healConfigs(configs = []) {
       `HEALING: config ${rst.termToString(config)}, which is ${configCounter + 1}/${configs.length} (${Math.round(((configCounter + 1) * 100) / configs.length)}%).`,
     );
     const type = cm.type(config);
+    let trigger;
+    if (partial) trigger = cm.partialHealingTrigger(config);
+    if (!trigger) trigger = cm.trigger(config);
+    if (trigger) {
+      const triggerStr = trigger.value;
+      trigger = triggerStr.replaceAll('${subject}', '?subject');
+    }
     const countResponse = await ss.querySudo(
       `
       SELECT (COUNT(DISTINCT ?subject) AS ?count)
       WHERE {
         ?subject rdf:type ${rst.termToString(type)} .
+        ${trigger ? trigger : ''}
       }
     `,
       'healing',
@@ -79,6 +94,7 @@ export async function healConfigs(configs = []) {
         SELECT DISTINCT ?subject
         WHERE {
           ?subject rdf:type ${rst.termToString(type)} .
+          ${trigger ? trigger : ''}
         }
         LIMIT ${env.BATCH_SIZE}
         OFFSET ${env.BATCH_SIZE * batchCount}
@@ -93,18 +109,12 @@ export async function healConfigs(configs = []) {
       // The rest below is more or less a copy from the deltaProcessing pipeline
 
       // Only process hierarchies for which its trigger is successful
+      // This step has been emptied compared to the normal delta processing,
+      // because during healing, we have already checked the trigger while
+      // selecting subjects above.
       const triggerHappyHierarchies = [];
       for (const { subject, config } of subjectsWithConfig) {
-        const trigger = cm.trigger(config);
-        if (trigger) {
-          const triggerMatches = await dm.matchTriggerOnSubject(
-            subject,
-            trigger,
-            'healing',
-          );
-          if (triggerMatches)
-            triggerHappyHierarchies.push(new dm.Hierarchy(subject, config));
-        } else triggerHappyHierarchies.push(new dm.Hierarchy(subject, config));
+        triggerHappyHierarchies.push(new dm.Hierarchy(subject, config));
       }
 
       // Target graph for each hierarchy and move parent and children to target

@@ -212,20 +212,21 @@ subject's underlying type.
 These are the possible properties that the service responds to, with their
 optionality and default values:
 
-| Property                   | Cardinality | Description & Possible values    |
-| -------------------------- | ----------- | -------------------------------- |
-| `rdf:type`                 | 1           | Always needs to be `vdds:Class`. Having this type in the configuration file is a way for the service to identify hierarchies. |
-| `vdds:type`                | 0 - 1       | Defines the actual type of the subject that needs to be copied to the target graphs. If this property is omitted, the URI of this entity is used as the `vdds:type` by default. |
-| `vdds:property`            | 0 - n       | URIs of the properties on the subject that must be copied to the target graphs that all need to exist. Defaults to `vdds:allProperties`, a special URI that signals that all properties must be copied. |
-| `vdds:excludeProperty`     | 0 - n       | URIs of the properties that must not be copied to the target graphs. This "blacklists" certain properties, on top of the `vdds:property` properties list. |
-| `vdds:optionalProperty`    | 0 - n       | URIs of optional properties that may be copied to the target graphs. |
-| `vdds:trigger`             | 0 - 1       | SPARQL pattern that will be placed directly in an `ASK` query. Can be used to filter subjects. This could be anything: filter on a certain predicate, if a certain other part of the hierarchy exists or has a certain property, ... Pattern `${subject}` is substituted by the URI of the subject under consideration at the moment. |
-| `vdds:graphQuery`          | 0 - 1       | A full SPARQL `SELECT` query that allows to retrieve variables for constructing the (multiple) target graphs. Can be optional if the target graph is static. The pattern `${subject}` is substituted for the URI of the subject. |
-| `vdds:targetGraphTemplate` | 1 - n       | Template string for the target graph URIs. Not optional. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
-| `vdds:sourceGraphTemplate` | 0 - n       | Template string for the source graph URIs. Optional. When not supplied, data from the whole triplestore is used for copying to the target graphs. When given, only data from these source graphs is copied to the target graphs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
-| `vdds:postProcessDelete`   | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
-| `vdds:postProcessInsert`   | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
-| `vdds:postProcessWhere`    | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
+| Property                     | Cardinality | Description & Possible values    |
+| ---------------------------- | ----------- | -------------------------------- |
+| `rdf:type`                   | 1           | Always needs to be `vdds:Class`. Having this type in the configuration file is a way for the service to identify hierarchies. |
+| `vdds:type`                  | 0 - 1       | Defines the actual type of the subject that needs to be copied to the target graphs. If this property is omitted, the URI of this entity is used as the `vdds:type` by default. |
+| `vdds:property`              | 0 - n       | URIs of the properties on the subject that must be copied to the target graphs that all need to exist. Defaults to `vdds:allProperties`, a special URI that signals that all properties must be copied. |
+| `vdds:excludeProperty`       | 0 - n       | URIs of the properties that must not be copied to the target graphs. This "blacklists" certain properties, on top of the `vdds:property` properties list. |
+| `vdds:optionalProperty`      | 0 - n       | URIs of optional properties that may be copied to the target graphs. |
+| `vdds:trigger`               | 0 - 1       | SPARQL pattern that will be placed directly in an `ASK` query. Can be used to filter subjects. This could be anything: filter on a certain predicate, if a certain other part of the hierarchy exists or has a certain property, ... Pattern `${subject}` is substituted by the URI of the subject under consideration at the moment. |
+| `vdds:partialHealingTrigger` | 0 - 1       | SPARQL pattern that will be placed directly in a query, only while healing with the `partial` property, or the periodic healing. Same workings as a normal trigger, but will overwrite the normal trigger. Triggers are not combined! |
+| `vdds:graphQuery`            | 0 - 1       | A full SPARQL `SELECT` query that allows to retrieve variables for constructing the (multiple) target graphs. Can be optional if the target graph is static. The pattern `${subject}` is substituted for the URI of the subject. |
+| `vdds:targetGraphTemplate`   | 1 - n       | Template string for the target graph URIs. Not optional. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
+| `vdds:sourceGraphTemplate`   | 0 - n       | Template string for the source graph URIs. Optional. When not supplied, data from the whole triplestore is used for copying to the target graphs. When given, only data from these source graphs is copied to the target graphs. Variables inside `${}` will be substituted by their respective values from the same variables in the `vdds:graphQuery`. E.g. a string `http://target/graph/${var}` with target graph query like `SELECT ?var WHERE {...}`. |
+| `vdds:postProcessDelete`     | 0 - 1       | Provide a SPARQL pattern that will be put in a `DELETE { ... }` expression. If no `INSERT` and `WHERE` patterns are given, this will cause the execution of a `DELETE DATA { ... }` query.
+| `vdds:postProcessInsert`     | 0 - 1       | Idem as for `vdds:postProcessDelete`, but for an `INSERT` expression. |
+| `vdds:postProcessWhere`      | 0 - 1       | Provide a `WHERE { ... }` SPARQL pattern. |
 
 ### `vdds:Subclass`
 
@@ -355,7 +356,10 @@ service. Supply a value for them using the `environment` keyword in the
   graph. Can be kept to a minimum, because there should normally be no
   leftovers except in the event of catastrophic failure.
 * `HEALING_CRON`: <em>(optional, default: "0 4 * * *")</em> cron pattern to
-  trigger the healing periodically. Defaults to a daily healing at 4am.
+  trigger the healing periodically. This is always a partial healing! It uses
+  the `vdds:partialHealingTrigger`s if they exist, overwriting the normal
+  triggers, to be able to limit the amount of subjects (e.g. only subjects from
+  the last 10 days). Defaults to a daily healing at 4am.
 * `LOGLEVEL`: <em>(optional, default: "silent", possible values: ["error",
   "info", "silent"])</em> level of logging to the console.
 * `WRITE_ERRORS`: <em>(optional, boolean as string, default: "false")</em> set
@@ -380,14 +384,49 @@ CRON job, and even that cleanup job should be redundant.
 <strong>This healing implementation is somewhat rudimentary. Keep an eye on the
 logs to track its progress.</strong>
 
-The healing also runs periodically on the `HEALING_CRON` cron pattern, which
+When healing is started, the service selects subjects from the triplestore to
+re-process them again. This could help restore integrity after a restart of the
+stack, other failure, or update to the config. Healing can be run in full
+(default), or in partial. When partial healing is chosen, the
+`vdds:partialHealingTrigger`s are applied to the subject selection process,
+overwriting the normal `vdds:trigger`s. Use the `vdds:partialHealingTrigger`
+pattern to limit the subject selection to (e.g.) the last couple of days with a
+clever SPARQL filter on a (e.g.) timestamp.
+
+The partial healing also runs periodically on the `HEALING_CRON` cron pattern, which
 defaults to a daily healing at 4am. See
 [Other environment variables](#other-environment-variables).
 
 ### POST `/heal`
 
-Query the triplestore for subjects of the types described in the configuration.
-These subjects are processed as they normally are on incoming delta messages.
+Query the triplestore for subjects and re-process them as they normally are on
+incoming delta messages. In the optional JSON body, use `configs` to limit the
+healing to specific configs only for speeding up the scenarios where you know that
+only a specific configuration has changed, or use `subjects` to only heal the
+specified subjects. In all cases, you could use `partial` to enable the partial
+healing process.
+
+**Body** *OPTIONAL* JSON with the following structure:
+
+```json
+{
+  "partial": true,
+  "configs": [ "http://rdf.myexperiment.org/ontologies/base/Submission" ],
+  "subjects": [ "http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5" ]
+}
+```
+
+* `partial`: <em>(optional, default: `false`)</em> a JSON boolean to set the
+  partial healing mechanism. If enabled, only subjects matching the
+  `vdds:partialHealingTrigger` will be healed.
+* `configs`: <em>(optional, default: `[]`)</em> an array of URI's in
+  string form that represent the configurations for which healing needs to be
+  performed. Only subjects of these types will be queried from the triplestore
+  and processed. When an empty array is given, or no JSON body at all, all
+  configurations are processed.
+* `subjects`: an array of subject URI's in string form on which healing needs
+  to be performed. Only these subjects will be healed. If no subjects are given,
+  or there is no JSON body at all, healing will still happen for the configs.
 
 **Returns** `200` immediately, after which the healing will start.
 
@@ -396,44 +435,6 @@ Inspect the logs for progress.
 **Trick:** filter command line logs for the keyword "HEALING" to get some nicer
 output on the progress of the healing. E.g. `docker compose logs --tail 100 -f
 vendor-data-distribution | grep 'HEALING'`.
-
-### POST `/heal/configs`
-
-Heal only a specific set of configurations. This can help speed up scenarios
-where you know that only a specific configuration has changed.
-
-**Body** *OPTIONAL* JSON with the following structure:
-
-```json
-{
-  "configs": [ "http://rdf.myexperiment.org/ontologies/base/Submission" ]
-}
-```
-
-* `configs`: <em>(optional, default: `[]`)</em> an array of URI's in
-  string form that represent the configurations for which healing needs to be
-  performed. Only subjects of these types will be queried from the triplestore
-  and processed. When an empty array is given, or no JSON body at all, all
-  configurations are processed, just like the `/heal` endpoint.
-
-**Returns** `200` immediately, after which the healing will start.
-
-### POST `/heal/subjects`
-
-Heal only certain subjects. Can also be used to speed up certain scenario's, or
-for testing out new configurations.
-
-**Body** JSON with the following structure:
-
-```json
-{
-  "subjects": [ "http://data.lblod.info/submissions/65F98FB2049CAEA56A94ACD5" ]
-}
-```
-
-* `subjects`: an array of subject URI's in string form on which healing needs
-  to be performed. Only these subjects will be healed. If no subjects are
-  given, or there is no JSON body at all, nothing will happen.
 
 ## Testing
 
