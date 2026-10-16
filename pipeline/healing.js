@@ -22,7 +22,7 @@ const sparqlJsonParser = new sjp.SparqlJsonParser();
  * @returns {undefined} Nothing.
  */
 export async function heal(partial = false, subjects = [], configs = []) {
-  await healSubjects(partial, subjects);
+  await healSubjects(subjects);
   await healConfigs(partial, configs);
 }
 
@@ -31,12 +31,10 @@ export async function heal(partial = false, subjects = [], configs = []) {
  *
  * @async
  * @function
- * @param {Boolean} partial - Optional, defaults to false. Set partial healing
- * for limited subjects.
  * @param {Array(NamedNode)} subjects - Subjects to heal only.
  * @returns {ProcessResult} Instance of ProcessResult to indicate results.
  */
-async function healSubjects(partial, subjects) {
+async function healSubjects(subjects) {
   if (subjects?.length > 0) return dp.processEventSubjects(subjects);
 }
 
